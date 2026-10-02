@@ -9,13 +9,21 @@
 ; You will want to replace this with your parser that includes
 ; more expression types, more options for these types, and error-checking.
 
+(define list-of-symbols?
+  (lambda (lst)
+    (cond [(empty? lst) #t]
+          [else (and (symbol? (car lst)) (list-of-symbols? (cdr lst)))]
+          )))
+; (list-of-symbols? '(a b c))
+; (list-of-symbols? '(a 1))
+
 (define-datatype expression expression?
   [var-exp
    (id symbol?)]
   [lit-exp
    (data number?)]
   [lambda-exp
-   (id symbol?)
+   (id list-of-symbols?) ; arguments 
    (body expression?)]
   [app-exp
    (rator expression?)
@@ -33,16 +41,23 @@
       [(number? datum) (lit-exp datum)]
       [(pair? datum)
        (cond
+         ; LAMBDA-EXP
+         ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
-          (lambda-exp (car (2nd  datum))
-                      (parse-exp (3rd datum)))]
+          ; if args is a list (2nd) empty
+          (cond [(not (list? (2nd datum))) (error 'parse-exp "lambda arguments are not a list")]
+                 [(empty? (2nd datum)) (lambda-exp '() (parse-exp (3rd datum)))]
+                [else (lambda-exp (2nd  datum)
+                      (parse-exp (3rd datum)))])]
+         
+         ; NOT LAMBDA...
          [else (app-exp (parse-exp (1st datum))
                         (parse-exp (2nd datum)))])]
       [else (error 'parse-exp "bad expression: ~s" datum)])))
 
 
 ; HANK TEST
-(parse-exp '(lambda (a) 1))
+(parse-exp '(lambda a 1))
 
 
 (define unparse-exp
