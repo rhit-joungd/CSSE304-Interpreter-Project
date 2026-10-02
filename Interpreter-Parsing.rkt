@@ -6,7 +6,8 @@
 ; This is a parser for simple Scheme expressions, 
 ; such as those in EOPL, 3.1 thru 3.3.
 
-; You will want to replace this with your parser that includes more expression types, more options for these types, and error-checking.
+; You will want to replace this with your parser that includes
+; more expression types, more options for these types, and error-checking.
 
 (define-datatype expression expression?
   [var-exp
