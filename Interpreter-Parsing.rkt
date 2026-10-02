@@ -9,11 +9,7 @@
 ; You will want to replace this with your parser that includes
 ; more expression types, more options for these types, and error-checking.
 
-(define list-of-symbols?
-  (lambda (lst)
-    (cond [(empty? lst) #t]
-          [else (and (symbol? (car lst)) (list-of-symbols? (cdr lst)))]
-          )))
+
 ; (list-of-symbols? '(a b c))
 ; (list-of-symbols? '(a 1))
 
