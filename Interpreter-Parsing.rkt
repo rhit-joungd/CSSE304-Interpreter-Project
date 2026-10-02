@@ -19,7 +19,12 @@
    (body expression?)]
   [app-exp
    (rator expression?)
-   (rand expression?)])
+   (rand expression?)]
+  [let-exp
+   (ids (list symbol?))
+   (vals (list expression?))
+   (body expression?)]
+  )
 
 ; Procedures to make the parser a little bit saner.
 (define 1st car)
@@ -56,6 +61,7 @@
                       (list 'lambda '() (unparse-exp body))
                       (list 'lambda (list id) (unparse-exp body)))] 
       [app-exp (rator rand) (list (quote rator) (quote rand))]
+      
       )))
 
 (unparse-exp (parse-exp '(lambda (a b) 1)))
