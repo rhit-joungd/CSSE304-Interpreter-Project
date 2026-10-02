@@ -25,9 +25,13 @@
   [lambda-exp
    (ids (list-of? symbol?)) ; arguments 
    (bodies (list-of? expression?))]
+  [let-exp
+   (ids (list-of? symbol?))
+   (vals (list-of? expression?))
+   (bodies (list-of? expression?))]
   [app-exp
    (rator expression?)
-   (rand expression?)])
+   (rand (list-of? expression?))])
 
 ; Procedures to make the parser a little bit saner.
 (define 1st car)
@@ -50,28 +54,56 @@
                           ; multiple bodies
                       (map parse-exp (cddr datum))))]
          
+         ; LET-EXP
+         [(eqv? (car datum) 'let)
+          (let-exp (map 1st (2nd datum))
+                         (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
+                         (map parse-exp (cddr datum)))]
+
+                      
          ; NOT LAMBDA...
-         [else (app-exp (parse-exp (1st datum))
-                        (parse-exp (2nd datum)))])]
+         [else
+          (if (= 0 (length (cdr datum)))
+               (app-exp (parse-exp (1st datum)) '())
+               (app-exp (parse-exp (1st datum))
+                        (map parse-exp (cdr datum))))])]
       [else (error 'parse-exp "bad expression: ~s" datum)])))
+
+; Returns a list of ids and vars paired together
+; ((id1 var1) (id2 var2))
+(define unparse-let-ids-vars
+  (lambda (ids vars)
+    (cond [(empty? ids) '()]
+          [else (cons (list (car ids) (car vars)) (unparse-let-ids-vars (cdr ids) (cdr vars)))])))
 
 (define unparse-exp
   (lambda (exp)
     (cases expression exp
       [var-exp (id) id]
       [lit-exp (data) data]
-      [lambda-exp (id body)
+      [lambda-exp (ids bodies)
                   ; if no arguments
-                  (if (and (list? id) (= (length id) 0))
-                      (list 'lambda '() (map unparse-exp body))
-                      (list 'lambda id (map unparse-exp body)))] 
-      [app-exp (rator rand) (list (quote rator) (quote rand))]
+                  (if (and (list? ids) (= (length ids) 0))
+                      (cons 'lambda (map unparse-exp bodies))
+                      (list 'lambda ids (map unparse-exp bodies)))]
+      [let-exp (ids vars bodies)
+               (list 'let
+                     (map (lambda (x exp) (list x (unparse-exp exp))) ids vars) 
+                     (map unparse-exp bodies))]
+      [app-exp (rator rand)
+               (unparse-exp rator)
+               (map unparse-exp rand)]
       )))
 
-; HANK TEST 
-; (define test (parse-exp '(lambda (x) 1 z)))
-; test
-; (unparse-exp test)
+; HANK TEST
+; procedure applications with multiple parameters (including 0 parameters).
+
+(define test (parse-exp '(x 1 2)))
+test
+(unparse-exp test)
+
+; LET TESTS
+; (define test (parse-exp '(let ([x (lambda a b c)][y 4]) x)))
 
 
 ;;   [var-exp
