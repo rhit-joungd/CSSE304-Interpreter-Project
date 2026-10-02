@@ -45,11 +45,36 @@
          ; LAMBDA-EXP
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
+<<<<<<< Updated upstream
           (if (not (list? (2nd datum)))
               (lambda-exp '() (map parse-exp (cdr datum)))
               (lambda-exp (2nd datum)
                           ; multiple bodies
                       (map parse-exp (cddr datum))))]
+=======
+          ; if args is a list (2nd) empty
+          (cond [(not (list? (2nd datum))) (error 'parse-exp "lambda arguments are not a list")]
+                [(empty? (2nd datum)) (lambda-exp '() (parse-exp (3rd datum)))]
+                [else (lambda-exp (2nd  datum)
+                      (parse-exp (3rd datum)))])]
+
+         ; LET-EXP
+         ; (let([id val-expr] ...) body ...+)
+         ; binding: 2nd datum
+         ; body: 3rd datum
+         [(eqv? (car datum) 'let)
+          (cond [(not (list? (2nd datum))) (error 'parse-exp "lambda arguments are not a list")]
+                [else (map 1st (2nd datum))
+                      (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
+                      (parse-exp (3rd datum)))]    
+          
+                 ]
+
+
+
+
+          ]
+>>>>>>> Stashed changes
          
          ; NOT LAMBDA...
          [else (app-exp (parse-exp (1st datum))
