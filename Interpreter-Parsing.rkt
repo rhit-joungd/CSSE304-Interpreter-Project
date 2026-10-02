@@ -42,17 +42,23 @@
 
 
 ; HANK TEST
-(parse-exp '(lambda (a) a))
+(parse-exp '(lambda (a) 1))
 
 
 (define unparse-exp
   (lambda (exp)
-    (cases expression input-exp
-      [var-exp (id)]
-      [lit-exp (data)]
-      [lambda-exp (list 'lambda)] 
-      [app-exp (rator)]
+    (cases expression exp
+      [var-exp (id) id]
+      [lit-exp (data) data]
+      [lambda-exp (id body)
+                  ; if no arguments
+                  (if (and (list? id) (= (length id) 0))
+                      (list 'lambda '() (unparse-exp body))
+                      (list 'lambda (list id) (unparse-exp body)))] 
+      [app-exp (rator rand) (list (quote rator) (quote rand))]
       )))
+
+(unparse-exp (parse-exp '(lambda (a b) 1)))
 
 ;;   [var-exp
 ;;    (id symbol?)]
