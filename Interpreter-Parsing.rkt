@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../chez-init.rkt")
+(require "chez-init.rkt")
 (provide parse-exp unparse-exp)
 
 ; This is a parser for simple Scheme expressions, 
@@ -40,9 +40,30 @@
                         (parse-exp (2nd datum)))])]
       [else (error 'parse-exp "bad expression: ~s" datum)])))
 
+
+; HANK TEST
+(parse-exp '(lambda (a) a))
+
+
 (define unparse-exp
   (lambda (exp)
-    (nyi)))
+    (cases expression input-exp
+      [var-exp (id)]
+      [lit-exp (data)]
+      [lambda-exp (list 'lambda)] 
+      [app-exp (rator)]
+      )))
+
+;;   [var-exp
+;;    (id symbol?)]
+;;   [lit-exp
+;;    (data number?)]
+;;   [lambda-exp
+;;    (id symbol?)
+;;    (body expression?)]
+;;   [app-exp
+;;    (rator expression?)
+;;    (rand expression?)])
 
 ; An auxiliary procedure that could be helpful.
 (define var-exp?
