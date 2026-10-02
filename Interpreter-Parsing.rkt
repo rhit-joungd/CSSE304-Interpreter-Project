@@ -19,8 +19,8 @@
   [lit-exp
    (data number?)]
   [lambda-exp
-   (id list-of-symbols?) ; arguments 
-   (body expression?)]
+   (ids (list-of? symbol?)) ; arguments 
+   (bodies (list-of? expression?))]
   [app-exp
    (rator expression?)
    (rand expression?)]
@@ -45,21 +45,16 @@
          ; LAMBDA-EXP
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
-          ; if args is a list (2nd) empty
-          (cond [(not (list? (2nd datum))) (error 'parse-exp "lambda arguments are not a list")]
-                 [(empty? (2nd datum)) (lambda-exp '() (parse-exp (3rd datum)))]
-                [else (lambda-exp (2nd  datum)
-                      (parse-exp (3rd datum)))])]
+          (if (not (list? (2nd datum)))
+              (lambda-exp '() (map parse-exp (cdr datum)))
+              (lambda-exp (2nd datum)
+                          ; multiple bodies
+                      (map parse-exp (cddr datum))))]
          
          ; NOT LAMBDA...
          [else (app-exp (parse-exp (1st datum))
                         (parse-exp (2nd datum)))])]
       [else (error 'parse-exp "bad expression: ~s" datum)])))
-
-
-; HANK TEST
-(parse-exp '(lambda a 1))
-
 
 (define unparse-exp
   (lambda (exp)
@@ -69,13 +64,17 @@
       [lambda-exp (id body)
                   ; if no arguments
                   (if (and (list? id) (= (length id) 0))
-                      (list 'lambda '() (unparse-exp body))
-                      (list 'lambda (list id) (unparse-exp body)))] 
+                      (list 'lambda '() (map unparse-exp body))
+                      (list 'lambda id (map unparse-exp body)))] 
       [app-exp (rator rand) (list (quote rator) (quote rand))]
       
       )))
 
-(unparse-exp (parse-exp '(lambda (a b) 1)))
+; HANK TEST 
+; (define test (parse-exp '(lambda (x) 1 z)))
+; test
+; (unparse-exp test)
+
 
 ;;   [var-exp
 ;;    (id symbol?)]
