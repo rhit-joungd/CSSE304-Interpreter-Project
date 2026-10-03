@@ -37,9 +37,9 @@
 ;; -   [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp (quote (letrec ((a b) (3 c)) d)))) "parse-error" 1] ; (run-test parse-invalid 17)
 ;; *to-implement     [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp (quote (let* ((a b) (3 c)) d)))) "parse-error" 3] ; (run-test parse-invalid 18)
      [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp (quote (let ((a (lambda (x)))))))) "parse-error" 2] ; (run-test parse-invalid 19)
-;; -     [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp (quote (set! x)))) "parse-error" 2] ; (run-test parse-invalid 20)
+     [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp (quote (set! x)))) "parse-error" 2] ; (run-test parse-invalid 20)
      [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp '(let ((a (let ((b (if x))) b))) a))) "parse-error" 2] ; (run-test parse-invalid 21)
-;; -    [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp '(set! x (let ((a (set! a b c))) a)))) "parse-error" 2] ; (run-test parse-invalid 22)
+     [(with-handlers ([exn:parse? (lambda (e) "parse-error")]) (parse-exp '(set! x (let ((a (set! a b c))) a)))) "parse-error" 2] ; (run-test parse-invalid 22)
    )
 
 (parse-unparse equal? ; (run-test parse-unparse)
