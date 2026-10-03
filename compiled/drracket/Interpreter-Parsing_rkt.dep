@@ -1,1 +1,1 @@
-("9.3" ta6nt ("6632c5a839adbf40851a69adb4f4b72b2cf0649c" . "1c15ee763143c3b1430f16c64166e4a6941c921f") #"C:\\Users\\helmerhj\\Documents\\GitHub\\CSSE304-Interpreter-Project\\chez-init.rkt" (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))
+("9.3" ta6nt ("8a9c1be8339d60f56356c98315d03d5071712547" . "1c15ee763143c3b1430f16c64166e4a6941c921f") #"C:\\Users\\helmerhj\\Documents\\GitHub\\CSSE304-Interpreter-Project\\chez-init.rkt" (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

@@ -19,6 +19,7 @@
         (pair? x) ; for quoted literals
         (null? x))))
 
+; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
   (lambda (lst)
     (cond
@@ -26,13 +27,18 @@
       [(member (car lst) (cdr lst)) #f]
       [else (unique-symbols? (cdr lst))])))
 
+; lambda arguments can be a symbol or list of symbols
+(define symbol-or-list-symbol?
+  (lambda (x)
+    (or (symbol? x) (list-of? symbol?))))
+
 (define-datatype expression expression?
   [var-exp
    (id symbol?)]
   [lit-exp
    (data literal?)]
   [lambda-exp
-   (ids (list-of? symbol?)) ; arguments 
+   (ids symbol-or-list-symbol?) ; arguments 
    (bodies (list-of? expression?))]
   [let-exp
    (ids (list-of? symbol?))
@@ -42,6 +48,9 @@
    (test-exp expression?)
    (then-exp expression?)
    (else-exp (lambda (x) (or (null? x) (expression? x))))] ; null if no else clause
+  [set!-exp
+   (var symbol?)
+   (val-exp expression?)]
   [app-exp
    (rator expression?)
    (rand (list-of? expression?))])
@@ -81,7 +90,7 @@
                      [bodies (cddr datum)])
                  (cond 
                    ;; Single symbol argument (lambda x body ...)
-                   [(symbol? datum)
+                   [(symbol? args)
                     (lambda-exp args (map parse-exp bodies))]
                    
                    ;; list of symbols for args
@@ -118,12 +127,20 @@
               [else
                (error 'parse-exp "if expression invalid num arguments: ~s" datum)]))]
 
+         ; SET-EXP 
+         [(eqv? (1st datum) 'set!)
+          (if (= (length datum) 3)
+              (if (symbol? (2nd datum))
+                  (set!-exp (2nd datum) (parse-exp (3rd datum)))
+                  (error 'parse-exp "set variable must be a symbol ~s" datum))
+              (error 'parse-exp "set needs 2 arguments: ~s" datum))]
                       
-         ; NOT LAMBDA...
+         ; Procedure application (app-exp)
          [else
           (app-exp (parse-exp (1st datum))
                    (map parse-exp (cdr datum)))])]
-      [else (error 'parse-exp "bad expression: ~s" datum)])))
+
+      [else (error 'parse-exp "bad expression, not found in parser: ~s" datum)])))
 
 ; Returns a list of ids and vars paired together
 ; ((id1 var1) (id2 var2))
@@ -139,10 +156,8 @@
       [lit-exp (data)
                data]
       [lambda-exp (ids bodies)
-                  ; if no arguments
-                  (if (and (list? ids) (= (length ids) 0))
-                      (cons 'lambda (map unparse-exp bodies))
-                      (append (list 'lambda ids) (map unparse-exp bodies)))]
+                  (cons 'lambda
+                        (cons ids (map unparse-exp bodies)))]
       [let-exp (ids vars bodies)
                (append
                 (list 'let
@@ -152,6 +167,10 @@
               (if (null? else-exp)
                   (list 'if (unparse-exp test-exp) (unparse-exp then-exp))
                   (list 'if (unparse-exp test-exp) (unparse-exp then-exp) (unparse-exp else-exp)))]
+
+      [set!-exp (var val-exp)
+                (list 'set! var (unparse-exp val-exp))]
+
       [app-exp (rator rand)
                (cons (unparse-exp rator)
                      (map unparse-exp rand))]
@@ -159,9 +178,11 @@
 
 ; TESTS---
 ; CURRENT:
-(define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
-test
-(unparse-exp test)
+; (define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
+
+; LAMBDA TEST
+;(define test (parse-exp '(lambda x y z)))
+;(define test (parse-exp '(lambda (x) (+ x 5))))
 
 ; IF TESTS
 ; (define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
@@ -172,6 +193,11 @@ test
 ; LET TESTS
 ; (define test (parse-exp '(let ([x (lambda a b c)][y 4]) x)))
 
+; SET TESTS
+(define test (parse-exp '(set! x 10)))
+
+test
+(unparse-exp test)
 
 ;;   [var-exp
 ;;    (id symbol?)]
