@@ -26,13 +26,17 @@
       [(member (car lst) (cdr lst)) #f]
       [else (unique-symbols? (cdr lst))])))
 
+(define symbol-or-list-symbol?
+  (lambda (x)
+    (or (symbol? x) (list-of? symbol?))))
+
 (define-datatype expression expression?
   [var-exp
    (id symbol?)]
   [lit-exp
    (data literal?)]
   [lambda-exp
-   (ids (list-of? symbol?)) ; arguments 
+   (ids symbol-or-list-symbol?) ; arguments 
    (bodies (list-of? expression?))]
   [let-exp
    (ids (list-of? symbol?))
@@ -81,7 +85,7 @@
                      [bodies (cddr datum)])
                  (cond 
                    ;; Single symbol argument (lambda x body ...)
-                   [(symbol? datum)
+                   [(symbol? args)
                     (lambda-exp args (map parse-exp bodies))]
                    
                    ;; list of symbols for args
@@ -139,10 +143,8 @@
       [lit-exp (data)
                data]
       [lambda-exp (ids bodies)
-                  ; if no arguments
-                  (if (and (list? ids) (= (length ids) 0))
-                      (cons 'lambda (map unparse-exp bodies))
-                      (append (list 'lambda ids) (map unparse-exp bodies)))]
+                  (cons 'lambda
+                        (cons ids (map unparse-exp bodies)))]
       [let-exp (ids vars bodies)
                (append
                 (list 'let
@@ -159,9 +161,11 @@
 
 ; TESTS---
 ; CURRENT:
-(define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
-test
-(unparse-exp test)
+; (define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
+
+; LAMBDA TEST
+(define test (parse-exp '(lambda x y z)))
+;(define test (parse-exp '(lambda (x) (+ x 5))))
 
 ; IF TESTS
 ; (define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
@@ -172,6 +176,8 @@ test
 ; LET TESTS
 ; (define test (parse-exp '(let ([x (lambda a b c)][y 4]) x)))
 
+test
+(unparse-exp test)
 
 ;;   [var-exp
 ;;    (id symbol?)]
