@@ -38,13 +38,27 @@
    (ids (list-of? symbol?))
    (vals (list-of? expression?))
    (bodies (list-of? expression?))]
+  [namedlet-exp
+   (name symbol?)
+   (ids (list-of? symbol?))
+   (vals (list-of? expression?))
+   (bodies (list-of? expression?))]
+  [let*-exp
+   (ids (list-of? symbol?))
+   (vals (list-of? expression?))
+   (bodies (list-of? expression?))]
+  [letrec-exp
+   (ids (list-of? symbol?))
+   (vals (list-of? expression?))
+   (bodies (list-of? expression?))]
   [if-exp
    (test-exp expression?)
    (then-exp expression?)
    (else-exp (lambda (x) (or (null? x) (expression? x))))] ; null if no else clause
   [app-exp
    (rator expression?)
-   (rand (list-of? expression?))])
+   (rand (list-of? expression?))]
+  )
 
 ; Procedures to make the parser a little bit saner.
 (define 1st car)
@@ -92,15 +106,33 @@
                     
                 [else (error 'parse-exp "invalid lambda expression: ~s" datum)])))]
          
-         ; LET-EXP
-         [(eqv? (car datum) 'let)
+         ; Normal LET-EXP, LET*-EXP, LETREC-EXP (let ([id val-expr] ...) body ...+)
+         [(and (or (eqv? (car datum) 'let*)
+                   (eqv? (car datum) 'letrec)
+                   (and (eqv? (car datum) 'let)
+                        (not (symbol? (cadr datum)))))
           (cond
             [(< (length datum) 3)
              (error 'parse-exp "let expression too short: ~s" datum)]
+            [(not (andmap pair? (2nd datum)))
+             (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
             [else (let-exp (map 1st (2nd datum))
                    (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
-                   (map parse-exp (cddr datum)))])]
+                   (map parse-exp (cddr datum)))]))]
 
+         ; Named LET (let name ([id val-expr] ...) body)
+         [(eqv? (car datum) 'let)
+          (cond
+            [(and (symbol? (cadr datum)) (< (length datum) 4))
+             (error 'parse-exp "named let expression too short: ~s" datum)]
+            [(not (andmap pair? (3rd datum)))
+             (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
+            [else (namedlet-exp
+                   (2nd datum)
+                   (map 1st (3rd datum))
+                   (map (lambda (b) (parse-exp (2nd b))) (3rd datum))
+                   (map parse-exp (cdddr datum)))])]
+         
          ; IF-EXP
          ; (if (condition) (true) (false, sometimes not here tho))
          [(eqv? (car datum) 'if)
@@ -148,6 +180,21 @@
                 (list 'let
                       (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
                 (map unparse-exp bodies))]
+      [namedlet-exp (name ids vars bodies)
+               (append 
+                (list 'let name
+                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                (map unparse-exp bodies))]
+      [let*-exp (ids vars bodies)
+               (append
+                (list 'let
+                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                (map unparse-exp bodies))]
+      [letrec-exp (ids vars bodies)
+               (append
+                (list 'let
+                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                (map unparse-exp bodies))]
       [if-exp (test-exp then-exp else-exp)
               (if (null? else-exp)
                   (list 'if (unparse-exp test-exp) (unparse-exp then-exp))
@@ -159,7 +206,7 @@
 
 ; TESTS---
 ; CURRENT:
-(define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
+(define test (parse-exp '(let loop ([x 5] [acc 1]) (loop (- x 1) (* acc x)))))
 test
 (unparse-exp test)
 
@@ -171,6 +218,8 @@ test
 
 ; LET TESTS
 ; (define test (parse-exp '(let ([x (lambda a b c)][y 4]) x)))
+
+; NAMED LET TEST
 
 
 ;;   [var-exp
