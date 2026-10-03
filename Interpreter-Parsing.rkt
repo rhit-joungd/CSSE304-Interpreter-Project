@@ -19,6 +19,13 @@
         (pair? x) ; for quoted literals
         (null? x))))
 
+(define unique-symbols?
+  (lambda (lst)
+    (cond
+      [(null? lst) #t]
+      [(member (car lst) (cdr lst)) #f]
+      [else (unique-symbols? (cdr lst))])))
+
 (define-datatype expression expression?
   [var-exp
    (id symbol?)]
@@ -55,6 +62,10 @@
 
       [(pair? datum)
        (cond
+         ; if its a pair, but not a list then error, invalid pair
+         [(not (list? datum))
+           (error 'parse-exp "expression is not a proper list: ~s" datum)]
+         
          ; QUOTED (quote ...)
          [(eqv? (car datum) 'quote)
           (if (= (length datum) 2)
@@ -64,17 +75,31 @@
          ; LAMBDA-EXP
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
-          (if (not (list? (2nd datum)))
-              (lambda-exp '() (map parse-exp (cdr datum)))
-              (lambda-exp (2nd datum)
-                          ; multiple bodies
-                          (map parse-exp (cddr datum))))]
+          (if (< (length datum) 3)
+               (error 'parse-exp "lambda requires parameters and body: ~s" datum)
+               (let ([args (2nd datum)]
+                     [bodies (cddr datum)])
+                 (cond 
+                   ;; Single symbol argument (lambda x body ...)
+                   [(symbol? datum)
+                    (lambda-exp args (map parse-exp bodies))]
+                   
+                   ;; list of symbols for args
+                   [((list-of? symbol?) args)
+                    (if (unique-symbols? args)
+                        (lambda-exp args (map parse-exp bodies))
+                        (error 'parse-exp "cannot have duplicate args in lambda exp: ~s" datum))]
+                    
+                [else (error 'parse-exp "invalid lambda expression: ~s" datum)])))]
          
          ; LET-EXP
          [(eqv? (car datum) 'let)
-          (let-exp (map 1st (2nd datum))
+          (cond
+            [(< (length datum) 3)
+             (error 'parse-exp "let expression too short: ~s" datum)]
+            [else (let-exp (map 1st (2nd datum))
                    (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
-                   (map parse-exp (cddr datum)))]
+                   (map parse-exp (cddr datum)))])]
 
          ; IF-EXP
          ; (if (condition) (true) (false, sometimes not here tho))
@@ -133,10 +158,13 @@
       )))
 
 ; TESTS---
-; CURRENT: IF
+; CURRENT:
 (define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
 test
 (unparse-exp test)
+
+; IF TESTS
+; (define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
 
 ; APP TEST
 ; (define test (parse-exp '(lambda (x) (+ x 5))))
