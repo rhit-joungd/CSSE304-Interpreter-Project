@@ -19,6 +19,7 @@
         (pair? x) ; for quoted literals
         (null? x))))
 
+; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
   (lambda (lst)
     (cond
@@ -26,6 +27,7 @@
       [(member (car lst) (cdr lst)) #f]
       [else (unique-symbols? (cdr lst))])))
 
+; lambda arguments can be a symbol or list of symbols
 (define symbol-or-list-symbol?
   (lambda (x)
     (or (symbol? x) (list-of? symbol?))))
