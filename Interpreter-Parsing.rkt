@@ -41,19 +41,12 @@
    (ids symbol-or-list-symbol?) ; arguments 
    (bodies (list-of? expression?))]
   [let-exp
+   (type symbol?)
    (ids (list-of? symbol?))
    (vals (list-of? expression?))
    (bodies (list-of? expression?))]
   [namedlet-exp
    (name symbol?)
-   (ids (list-of? symbol?))
-   (vals (list-of? expression?))
-   (bodies (list-of? expression?))]
-  [let*-exp
-   (ids (list-of? symbol?))
-   (vals (list-of? expression?))
-   (bodies (list-of? expression?))]
-  [letrec-exp
    (ids (list-of? symbol?))
    (vals (list-of? expression?))
    (bodies (list-of? expression?))]
@@ -123,9 +116,17 @@
           (cond
             [(< (length datum) 3)
              (error 'parse-exp "let expression too short: ~s" datum)]
-            [(not (andmap pair? (2nd datum)))
+            [(or (not(list? (2nd datum))) (not (andmap pair? (2nd datum))))
              (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
-            [else (let-exp (map 1st (2nd datum))
+            [(not (andmap list? (2nd datum)))
+             (error 'parse-exp "all let var-exp bindings need to be pairs: ~s" datum)]
+            [(not (andmap  (lambda (lst) (= 2 (length lst))) (2nd datum)))
+             (error 'parse-exp "each let var-exp binding needs to be length 2: ~s" datum)]
+            [(not (andmap  (lambda (lst) (symbol? (car lst))) (2nd datum)))
+             (error 'parse-exp "all let vars names need to be symbols: ~s" datum)]
+            [else (let-exp
+                   (car datum)
+                   (map 1st (2nd datum))
                    (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
                    (map parse-exp (cddr datum)))]))]
 
@@ -190,24 +191,14 @@
       [lambda-exp (ids bodies)
                   (cons 'lambda
                         (cons ids (map unparse-exp bodies)))]
-      [let-exp (ids vars bodies)
+      [let-exp (type ids vars bodies)
                (append
-                (list 'let
+                (list type
                       (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
                 (map unparse-exp bodies))]
       [namedlet-exp (name ids vars bodies)
                (append 
                 (list 'let name
-                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
-                (map unparse-exp bodies))]
-      [let*-exp (ids vars bodies)
-               (append
-                (list 'let
-                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
-                (map unparse-exp bodies))]
-      [letrec-exp (ids vars bodies)
-               (append
-                (list 'let
                       (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
                 (map unparse-exp bodies))]
       [if-exp (test-exp then-exp else-exp)
@@ -225,7 +216,7 @@
 
 ; TESTS---
 ; CURRENT:
-(define test (parse-exp '(let loop ([x 5] [acc 1]) (loop (- x 1) (* acc x)))))
+(define test (parse-exp '(lambda (a b c) (let* ((a b) (d (append a c))) d))))
 test
 (unparse-exp test)
 
@@ -239,10 +230,10 @@ test
 ; (define test (parse-exp '(let ([x (lambda a b c)][y 4]) x)))
 
 ; SET TESTS
-(define test (parse-exp '(set! x 10)))
+;(define test (parse-exp '(set! x 10)))
 
-test
-(unparse-exp test)
+;test
+;(unparse-exp test)
 
 
 ;;   [var-exp
