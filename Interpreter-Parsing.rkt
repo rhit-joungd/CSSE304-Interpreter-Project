@@ -16,8 +16,7 @@
         (boolean? x)
         (string? x)
         (vector? x)
-        (symbol? x) ; handled when quoted i think
-        (pair? x)   ; handled when quoted
+        (pair? x) ; for quoted literals
         (null? x))))
 
 (define-datatype expression expression?
@@ -32,6 +31,10 @@
    (ids (list-of? symbol?))
    (vals (list-of? expression?))
    (bodies (list-of? expression?))]
+  [if-exp
+   (test-exp expression?)
+   (then-exp expression?)
+   (else-exp (lambda (x) (or (null? x) (expression? x))))] ; null if no else clause
   [app-exp
    (rator expression?)
    (rand (list-of? expression?))])
@@ -40,14 +43,24 @@
 (define 1st car)
 (define 2nd cadr)
 (define 3rd caddr)
+(define 4th cadddr)
 
 (define parse-exp         
   (lambda (datum)
     (cond
       [(symbol? datum) (var-exp datum)]
-      [(literal? datum) (lit-exp datum)]
+      ; literals that are just themselves (not quote)
+      [(or (number? datum) (boolean? datum) (string? datum) (vector? datum))
+       (lit-exp datum)]
+
       [(pair? datum)
        (cond
+         ; QUOTED (quote ...)
+         [(eqv? (car datum) 'quote)
+          (if (= (length datum) 2)
+              (lit-exp (list 'quote (2nd datum)))
+              (error 'parse-exp "invalid quote expression my guy ~s" datum))]
+         
          ; LAMBDA-EXP
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
@@ -55,13 +68,30 @@
               (lambda-exp '() (map parse-exp (cdr datum)))
               (lambda-exp (2nd datum)
                           ; multiple bodies
-                      (map parse-exp (cddr datum))))]
+                          (map parse-exp (cddr datum))))]
          
          ; LET-EXP
          [(eqv? (car datum) 'let)
           (let-exp (map 1st (2nd datum))
-                         (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
-                         (map parse-exp (cddr datum)))]
+                   (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
+                   (map parse-exp (cddr datum)))]
+
+         ; IF-EXP
+         ; (if (condition) (true) (false, sometimes not here tho))
+         [(eqv? (car datum) 'if)
+          (let ([len (length datum)])
+            (cond
+              ; no else provided
+              [(= len 3)
+               (if-exp (parse-exp (2nd datum))
+                       (parse-exp (3rd datum))
+                       '())]
+              [(= len 4)
+               (if-exp (parse-exp (2nd datum))
+                       (parse-exp (3rd datum))
+                       (parse-exp (4th datum)))]
+              [else
+               (error 'parse-exp "if expression invalid num arguments: ~s" datum)]))]
 
                       
          ; NOT LAMBDA...
@@ -81,7 +111,8 @@
   (lambda (exp)
     (cases expression exp
       [var-exp (id) id]
-      [lit-exp (data) data]
+      [lit-exp (data)
+               data]
       [lambda-exp (ids bodies)
                   ; if no arguments
                   (if (and (list? ids) (= (length ids) 0))
@@ -89,9 +120,13 @@
                       (append (list 'lambda ids) (map unparse-exp bodies)))]
       [let-exp (ids vars bodies)
                (append
-                     (list 'let
-                           (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
-                     (map unparse-exp bodies))]
+                (list 'let
+                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                (map unparse-exp bodies))]
+      [if-exp (test-exp then-exp else-exp)
+              (if (null? else-exp)
+                  (list 'if (unparse-exp test-exp) (unparse-exp then-exp))
+                  (list 'if (unparse-exp test-exp) (unparse-exp then-exp) (unparse-exp else-exp)))]
       [app-exp (rator rand)
                (cons (unparse-exp rator)
                      (map unparse-exp rand))]
@@ -99,7 +134,7 @@
 
 ; TESTS---
 ; CURRENT: IF
-(define test (parse-exp (quote (lambda (x) (if (boolean? x) '#(1 2 3 4) 1234)))))
+(define test (parse-exp '(lambda (x) (if (boolean? x) '#(1 2 3 4) 1234))))
 test
 (unparse-exp test)
 
