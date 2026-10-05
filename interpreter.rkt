@@ -297,7 +297,7 @@
               (if (eval-exp env test-exp)
                   (eval-exp env then-exp)
                   (eval-exp env else-exp))]
-      [let-exp (vars var-exp bodies)
+      [let-exp (type vars var-exp bodies)
                ; example with a single of each
                ; 1. evaluate var-exp list
                ; 2. make a new environment
@@ -372,3 +372,22 @@
 
 (define eval-one-exp
   (lambda (x) (top-level-eval (parse-exp x))))
+
+
+;; TESTING
+;; LITERALS
+(parse-exp ''())
+(eval-one-exp ''()); '() 1] ; (run-test literals 1)
+;(eval-one-exp #t); #t 1] ; (run-test literals 2)
+;(eval-one-exp #f) ;#f 1] ; (run-test literals 3)
+;(eval-one-exp "") ;'"" 1] ; (run-test literals 4)
+;(eval-one-exp "test") ;'"test" 1] ; (run-test literals 5)
+;(eval-one-exp ''#(a b c)); #(a b c) 1] ; (run-test literals 6)
+;(eval-one-exp ''#5(a)) ;#5(a) 1] ; (run-test literals 7)
+
+
+
+
+
+
+
