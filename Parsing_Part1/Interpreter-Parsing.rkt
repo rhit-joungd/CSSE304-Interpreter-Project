@@ -1,6 +1,6 @@
 #lang racket
 
-(require "chez-init.rkt")
+(require "../chez-init.rkt")
 (provide parse-exp unparse-exp)
 
 ; This is a parser for simple Scheme expressions, 
