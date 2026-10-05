@@ -5,42 +5,79 @@
 
 ;-------------------+
 ;                   |
+;   sec:HELPERS     |
+;                   |
+;-------------------+
+
+; lambdas need to have unique symbols in their arguments
+(define unique-symbols?
+  (lambda (lst)
+    (cond
+      [(null? lst) #t]
+      [(member (car lst) (cdr lst)) #f]
+      [else (unique-symbols? (cdr lst))])))
+
+; lambda arguments can be a symbol or list of symbols
+(define symbol-or-list-symbol?
+  (lambda (x)
+    (or (symbol? x) (list-of? symbol?))))
+
+(define 1st car)
+(define 2nd cadr)
+(define 3rd caddr)
+(define 4th cadddr)
+
+;-------------------+
+;                   |
 ;   sec:DATATYPES   |
 ;                   |
 ;-------------------+
 
-; parsed expression.  You'll probably want to replace this 
-; code with your expression datatype from A11b
+(define literal?
+  (lambda (x)
+    (or (number? x)
+        (boolean? x)
+        (string? x)
+        (vector? x)
+        (pair? x) ; for quoted literals
+        (null? x))))
 
-(define-datatype expression expression?  
-  [var-exp        ; variable references
+(define-datatype expression expression?
+  [var-exp
    (id symbol?)]
-
-  [let-exp  ;; these are simplified so as not worry about variant
-            ;; forms.  You'll need more complex versions.
-   (vars (list-of? symbol?))
-   (var-exps (list-of? expression?))
-   (bodies (list-of? expression?))]
+  [lit-exp
+   (data literal?)]
   [lambda-exp
-   (vars (list-of? symbol?))
+   (ids symbol-or-list-symbol?) ; arguments 
+   (bodies (list-of? expression?))]
+  [let-exp
+   (type symbol?)
+   (ids (list-of? symbol?))
+   (vals (list-of? expression?))
+   (bodies (list-of? expression?))]
+  [namedlet-exp
+   (name symbol?)
+   (ids (list-of? symbol?))
+   (vals (list-of? expression?))
    (bodies (list-of? expression?))]
   [if-exp
    (test-exp expression?)
    (then-exp expression?)
-   (else-exp expression?)]
-
-  [lit-exp        ; "Normal" data.  Did I leave out any types?
-   (datum
-    (lambda (x)
-      (ormap 
-       (lambda (pred) (pred x))
-       (list number? vector? boolean? symbol? string? pair? null?))))]
-  [app-exp        ; applications
+   (else-exp (lambda (x) (or (null? x) (expression? x))))] ; null if no else clause
+  [set!-exp
+   (var symbol?)
+   (val-exp expression?)]
+  [app-exp
    (rator expression?)
-   (rands (list-of? expression?))]  
+   (rand (list-of? expression?))]
   )
+
 	
-	
+;--------------------------+
+;                          |
+;   sec:ENVIRONMENT-TYPE   |
+;                          |
+;--------------------------+	
 
 ;; environment type definitions
 
@@ -69,47 +106,112 @@
 ;                   |
 ;-------------------+
 
-; This is a parser for simple Scheme expressions, such as those in EOPL 3.1 thru 3.3.
-
-; You will want to replace this with your parser that includes more expression types, more options for these types, and error-checking.
-
-; Helper procedures to make the parser a little bit saner.
-(define 1st car)
-(define 2nd cadr)
-(define 3rd caddr)
-(define 4th cadddr)
-
-
-; Again, you'll probably want to use your code from A11b
-
 (define parse-exp         
   (lambda (datum)
     (cond
-     [(symbol? datum) (var-exp datum)]
-     [(number? datum) (lit-exp datum)]
-     [(pair? datum)
-      (case (car datum)
-        [(let)
-         (let ([var-pairs (2nd datum)]
-               [bodies (cddr datum)])
-           (let-exp (map 1st var-pairs)
-                    (map parse-exp (map 2nd var-pairs))
-                    (map parse-exp bodies)))]
+      [(symbol? datum) (var-exp datum)]
+      ; literals that are just themselves (not quote)
+      [(or (number? datum) (boolean? datum) (string? datum) (vector? datum))
+       (lit-exp datum)]
+
+      [(pair? datum)
+       (cond
+         ; if its a pair, but not a list then error, invalid pair
+         [(not (list? datum))
+           (error 'parse-exp "expression is not a proper list: ~s" datum)]
+         
+         ; QUOTED (quote ...)
+         [(eqv? (car datum) 'quote)
+          (if (= (length datum) 2)
+              (lit-exp (list 'quote (2nd datum)))
+              (error 'parse-exp "invalid quote expression my guy ~s" datum))]
+         
+         ; LAMBDA-EXP
+         ; of form (lambda (args) (or '()) body)
+         [(eqv? (car datum) 'lambda)
+          (if (< (length datum) 3)
+               (error 'parse-exp "lambda requires parameters and body: ~s" datum)
+               (let ([args (2nd datum)]
+                     [bodies (cddr datum)])
+                 (cond 
+                   ;; Single symbol argument (lambda x body ...)
+                   [(symbol? args)
+                    (lambda-exp args (map parse-exp bodies))]
+                   
+                   ;; list of symbols for args
+                   [((list-of? symbol?) args)
+                    (if (unique-symbols? args)
+                        (lambda-exp args (map parse-exp bodies))
+                        (error 'parse-exp "cannot have duplicate args in lambda exp: ~s" datum))]
+                    
+                [else (error 'parse-exp "invalid lambda expression: ~s" datum)])))]
+         
+         ; Normal LET-EXP, LET*-EXP, LETREC-EXP (let ([id val-expr] ...) body ...+)
+         [(and (or (eqv? (car datum) 'let*)
+                   (eqv? (car datum) 'letrec)
+                   (and (eqv? (car datum) 'let)
+                        (not (symbol? (cadr datum)))))
+          (cond
+            [(< (length datum) 3)
+             (error 'parse-exp "let expression too short: ~s" datum)]
+            [(or (not(list? (2nd datum))) (not (andmap pair? (2nd datum))))
+             (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
+            [(not (andmap list? (2nd datum)))
+             (error 'parse-exp "all let var-exp bindings need to be pairs: ~s" datum)]
+            [(not (andmap  (lambda (lst) (= 2 (length lst))) (2nd datum)))
+             (error 'parse-exp "each let var-exp binding needs to be length 2: ~s" datum)]
+            [(not (andmap  (lambda (lst) (symbol? (car lst))) (2nd datum)))
+             (error 'parse-exp "all let vars names need to be symbols: ~s" datum)]
+            [else (let-exp
+                   (car datum)
+                   (map 1st (2nd datum))
+                   (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
+                   (map parse-exp (cddr datum)))]))]
+
+         ; Named LET (let name ([id val-expr] ...) body)
+         [(eqv? (car datum) 'let)
+          (cond
+            [(and (symbol? (cadr datum)) (< (length datum) 4))
+             (error 'parse-exp "named let expression too short: ~s" datum)]
+            [(not (andmap pair? (3rd datum)))
+             (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
+            [else (namedlet-exp
+                   (2nd datum)
+                   (map 1st (3rd datum))
+                   (map (lambda (b) (parse-exp (2nd b))) (3rd datum))
+                   (map parse-exp (cdddr datum)))])]
+         
+         ; IF-EXP
+         ; (if (condition) (true) (false, sometimes not here tho))
+         [(eqv? (car datum) 'if)
+          (let ([len (length datum)])
+            (cond
+              ; no else provided
+              [(= len 3)
+               (if-exp (parse-exp (2nd datum))
+                       (parse-exp (3rd datum))
+                       '())]
+              [(= len 4)
+               (if-exp (parse-exp (2nd datum))
+                       (parse-exp (3rd datum))
+                       (parse-exp (4th datum)))]
+              [else
+               (error 'parse-exp "if expression invalid num arguments: ~s" datum)]))]
+
+         ; SET-EXP 
+         [(eqv? (1st datum) 'set!)
+          (if (= (length datum) 3)
+              (if (symbol? (2nd datum))
+                  (set!-exp (2nd datum) (parse-exp (3rd datum)))
+                  (error 'parse-exp "set variable must be a symbol ~s" datum))
+              (error 'parse-exp "set needs 2 arguments: ~s" datum))]
                       
-        [(lambda)
-         (lambda-exp (2nd datum) (map parse-exp (cddr datum)))]
-        [(if)
-         (if-exp
-          (parse-exp (2nd datum))
-          (parse-exp (3rd datum))
-          (parse-exp (4th datum)))]
-       [else (app-exp (parse-exp (1st datum))
-		      (map parse-exp (cdr datum)))])]
-     [else (error 'parse-exp "bad expression: ~s" datum)])))
+         ; Procedure application (app-exp)
+         [else
+          (app-exp (parse-exp (1st datum))
+                   (map parse-exp (cdr datum)))])]
 
-
-
-
+      [else (error 'parse-exp "bad expression, not found in parser: ~s" datum)])))
 
 
 ;-------------------+
