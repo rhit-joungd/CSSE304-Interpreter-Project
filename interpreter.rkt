@@ -22,6 +22,29 @@
   (lambda (x)
     (or (symbol? x) (list-of? symbol?))))
 
+; Creates and applies arbitrary car/cdr combinations to a lst 
+(define compose-c...r
+  (lambda (str lst)
+    ;; Takes the middle string, such as "cadr" --> "ad" from and processes right-to-left
+    (let loop ([chars (reverse (string->list str))]
+               [val lst])
+      (cond
+        [(null? chars) val]
+        [(eqv? (car chars) #\a) (loop (cdr chars) (car val))]
+        [(eqv? (car chars) #\d) (loop (cdr chars) (cdr val))]
+        [else (error 'compose-c...r "invalid char in c...r variant: ~s" (car chars))]))))
+
+; Checks whether a given proc (as sym) starts with a 'c, ends with a 'r and
+; only has 'a or 'd in between 
+(define c...r-proc?
+  (lambda (sym)
+    (let ([str (symbol->string sym)])
+      (and (> (string-length str) 2)
+           (char=? (string-ref str 0) #\c)
+           (char=? (string-ref str (- (string-length str) 1)) #\r)
+           (andmap (lambda (ch) (or (char=? ch #\a) (char=? ch #\d)))
+                   (string->list (substring str 1 (- (string-length str) 1))))))))
+
 (define 1st car)
 (define 2nd cadr)
 (define 3rd caddr)
@@ -35,7 +58,8 @@
 
 (define literal?
   (lambda (x)
-    (or (number? x)
+    (or (symbol? x)
+        (number? x)
         (boolean? x)
         (string? x)
         (vector? x)
@@ -110,6 +134,7 @@
   (lambda (datum)
     (cond
       [(symbol? datum) (var-exp datum)]
+
       ; literals that are just themselves (not quote)
       [(or (number? datum) (boolean? datum) (string? datum) (vector? datum))
        (lit-exp datum)]
@@ -123,7 +148,7 @@
          ; QUOTED (quote ...)
          [(eqv? (car datum) 'quote)
           (if (= (length datum) 2)
-              (lit-exp (list 'quote (2nd datum)))
+              (lit-exp (2nd datum))
               (error 'parse-exp "invalid quote expression my guy ~s" datum))]
          
          ; LAMBDA-EXP
@@ -242,8 +267,11 @@
 (define apply-env
   (lambda (env sym) 
     (cases environment env 
-      [empty-env-record ()      
-                        (error 'env "variable ~s not found." sym)]
+      [empty-env-record ()
+                        ; applying an arbitrary c..r proc
+                        (if (c...r-proc? sym)
+                            (prim-proc sym) ; On-the-fly construction of primitive procedure!
+                            (error 'env "variable ~s not found." sym))]
       [extended-env-record (syms vals env)
                            (let ((pos (list-find-position sym syms)))
                              (if (number? pos)
@@ -335,7 +363,13 @@
                    "Attempt to apply bad procedure: ~s" 
                    proc-value)])))
 
-(define *prim-proc-names* '(+ - * / add1 sub1 not cons = >= car list zero?))
+(define *prim-proc-names*
+  '(+ - * / add1 sub1
+      not = >= car
+      zero? null? eq? equal? list? pair? vector? number? symbol?
+      procedure?
+      cons list length
+      list->vector vector->list))
 
 (define init-env         ; for now, our initial global environment only contains 
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -346,7 +380,6 @@
 
 ; Usually an interpreter must define each 
 ; built-in procedure individually.  We are "cheating" a little bit.
-
 (define apply-prim-proc
   (lambda (prim-proc args)
     (case prim-proc
@@ -356,17 +389,37 @@
       [(/) (apply / args)]
       [(add1) (+ (1st args) 1)]
       [(sub1) (- (1st args) 1)]
-      [(not) (not (car args))] ;input should be only 1
-      [(cons) (cons (1st args) (2nd args))] ;input should be 2
+      [(not) (not (car args))]
+      
+      ; predicates
+      [(zero?) (zero? (car args))]
+      [(null?) (null? (car args))]
+      [(eq?) (eq? (1st args) (2nd args))]
+      [(equal?) (equal? (1st args) (2nd args))]
+      [(symbol?) (symbol? (1st args))]
+      [(list?) (list? (1st args))]
+      [(pair?) (pair? (1st args))]
+      [(number?) (number? (1st args))]
+      [(vector?) (vector? (1st args))]
+      [(procedure?) (procedure? (1st args))]
       [(=) (apply = args)]
       [(>=) (apply >= args)]
-      [(car) (apply (car args))]
-      [(list) (list args)]
-      [(zero?) (zero? (car args))] ; input should be only 1
-      ;keep going
-      [else (error 'apply-prim-proc 
-                   "Bad primitive procedure name: ~s" 
-                   prim-proc)])))
+      
+      ; listing...
+      [(list) args]
+      [(cons) (cons (1st args) (2nd args))]
+      [(length) (apply length args)]
+      [(list->vector) (apply list->vector args)]
+      [(vector->list) (apply vector->list args)]
+      
+      ; keep going .. 
+      [else
+       (cond
+         [(c...r-proc? prim-proc)
+          (let ([str (symbol->string prim-proc)])
+            (compose-c...r (substring str 1 (- (string-length str) 1)) (car args)))]
+         [else
+          (error 'apply-prim-proc "Bad primitive procedure name: ~s" prim-proc)])])))
 
 (define rep      ; "read-eval-print" loop.
   (lambda ()
@@ -383,8 +436,8 @@
 
 ;; TESTING
 ;; LITERALS
-(parse-exp '(/ 1 2))
-(eval-one-exp '(/ 1 2)); '() 1] ; (run-test literals 1)
+(parse-exp '(car (cdr '(a b c))))
+(eval-one-exp '(car (cdr '(a b c)))); '() 1] ; (run-test literals 1)
 ;(eval-one-exp #t); #t 1] ; (run-test literals 2)
 ;(eval-one-exp #f) ;#f 1] ; (run-test literals 3)
 ;(eval-one-exp "") ;'"" 1] ; (run-test literals 4)
