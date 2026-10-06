@@ -335,7 +335,7 @@
                    "Attempt to apply bad procedure: ~s" 
                    proc-value)])))
 
-(define *prim-proc-names* '(+ - * add1 sub1 cons =))
+(define *prim-proc-names* '(+ - * / add1 sub1 not cons = >= car list zero?))
 
 (define init-env         ; for now, our initial global environment only contains 
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -362,6 +362,7 @@
       [(>=) (apply >= args)]
       [(car) (apply (car args))]
       [(list) (list args)]
+      [(zero?) (zero? (car args))] ; input should be only 1
       ;keep going
       [else (error 'apply-prim-proc 
                    "Bad primitive procedure name: ~s" 
@@ -383,7 +384,7 @@
 ;; TESTING
 ;; LITERALS
 (parse-exp '(/ 1 2))
-(eval-one-exp ''()); '() 1] ; (run-test literals 1)
+(eval-one-exp '(/ 1 2)); '() 1] ; (run-test literals 1)
 ;(eval-one-exp #t); #t 1] ; (run-test literals 2)
 ;(eval-one-exp #f) ;#f 1] ; (run-test literals 3)
 ;(eval-one-exp "") ;'"" 1] ; (run-test literals 4)

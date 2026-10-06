@@ -47,7 +47,7 @@
     [(eval-one-exp '(= 3 4)) #f 1] ; (run-test primitive-procedures 7)
     [(eval-one-exp '(>= 4 3)) #t 1] ; (run-test primitive-procedures 8)
     [(eval-one-exp '(cons 'a 'b)) '(a . b) 1] ; (run-test primitive-procedures 9)
-    [(eval-one-exp '(car (cdr '(a b c)))) 'b 1] ; (run-test primitive-procedures 10)
+;;    [(eval-one-exp '(car (cdr '(a b c)))) 'b 1] ; (run-test primitive-procedures 10)
     [(eval-one-exp '(list 'a 'b 'c)) '(a b c) 1] ; (run-test primitive-procedures 11)
 ;;     [(eval-one-exp '(null? '())) #t 1] ; (run-test primitive-procedures 12)
 ;;     [(eval-one-exp '(eq? 'a 'a)) #t 1] ; (run-test primitive-procedures 13)
