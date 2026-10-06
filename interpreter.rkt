@@ -91,6 +91,8 @@
   [set!-exp
    (var symbol?)
    (val-exp expression?)]
+  [begin-exp
+   (bodies (list-of? expression?))]
   [app-exp
    (rator expression?)
    (rand (list-of? expression?))]
@@ -150,7 +152,7 @@
           (if (= (length datum) 2)
               (lit-exp (2nd datum))
               (error 'parse-exp "invalid quote expression my guy ~s" datum))]
-         
+     
          ; LAMBDA-EXP
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
@@ -158,8 +160,7 @@
                (error 'parse-exp "lambda requires parameters and body: ~s" datum)
                (let ([args (2nd datum)]
                      [bodies (cddr datum)])
-                 (cond 
-                   ;; Single symbol argument (lambda x body ...)
+                 (cond                    ;; Single symbol argument (lambda x body ...)
                    [(symbol? args)
                     (lambda-exp args (map parse-exp bodies))]
                    
@@ -201,7 +202,7 @@
             [(not (andmap pair? (3rd datum)))
              (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
             [else (namedlet-exp
-                   (2nd datum)
+                   (2nd datum)1
                    (map 1st (3rd datum))
                    (map (lambda (b) (parse-exp (2nd b))) (3rd datum))
                    (map parse-exp (cdddr datum)))])]
@@ -230,7 +231,11 @@
                   (set!-exp (2nd datum) (parse-exp (3rd datum)))
                   (error 'parse-exp "set variable must be a symbol ~s" datum))
               (error 'parse-exp "set needs 2 arguments: ~s" datum))]
-                      
+
+         ;BEGIN-EXP
+         [(eqv? (1st datum) 'begin)
+          (begin-exp (map parse-exp (cdr datum)))]
+         
          ; Procedure application (app-exp)
          [else
           (app-exp (parse-exp (1st datum))
@@ -335,6 +340,8 @@
                  ; 3. evaluate the bodies in new-env
                  (eval-exp new-env (car bodies))
                  )]
+      [begin-exp (bodies)
+                 (last (map (lambda (b) (eval-exp env b)) bodies))]
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
                      [args (eval-rands env rands)])    ; then evaluate operands
