@@ -351,12 +351,18 @@
   (lambda (prim-proc args)
     (case prim-proc
       [(+) (apply + args)]
-      [(-) (- (1st args) (2nd args))]
-      [(*) (* (1st args) (2nd args))]
+      [(-) (apply - args)]
+      [(*) (apply * args)]
+      [(/) (apply / args)]
       [(add1) (+ (1st args) 1)]
       [(sub1) (- (1st args) 1)]
-      [(cons) (cons (1st args) (2nd args))]
-      [(=) (= (1st args) (2nd args))]
+      [(not) (not (car args))] ;input should be only 1
+      [(cons) (cons (1st args) (2nd args))] ;input should be 2
+      [(=) (apply = args)]
+      [(>=) (apply >= args)]
+      [(car) (apply (car args))]
+      [(list) (list args)]
+      ;keep going
       [else (error 'apply-prim-proc 
                    "Bad primitive procedure name: ~s" 
                    prim-proc)])))
@@ -376,7 +382,7 @@
 
 ;; TESTING
 ;; LITERALS
-(parse-exp ''())
+(parse-exp '(/ 1 2))
 (eval-one-exp ''()); '() 1] ; (run-test literals 1)
 ;(eval-one-exp #t); #t 1] ; (run-test literals 2)
 ;(eval-one-exp #f) ;#f 1] ; (run-test literals 3)
