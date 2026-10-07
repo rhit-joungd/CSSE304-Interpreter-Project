@@ -123,7 +123,12 @@
 
 (define-datatype proc-val proc-val?
   [prim-proc
-   (name symbol?)])
+   (name symbol?)]
+  [lambda-proc
+   (vars symbol-or-list-symbol?)
+   (exps (list-of? expression?))
+   (env environment?)]
+)
 
   
 ;-------------------+
@@ -340,6 +345,9 @@
                  ; 3. evaluate the bodies in new-env
                  (eval-exp new-env (car bodies))
                  )]
+      [lambda-exp (ids bodies)
+               ; returns a closure 'lambda-proc'
+               (lambda-proc ids bodies env)]
       [begin-exp (bodies)
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
       [app-exp (rator rands)
@@ -363,8 +371,18 @@
   (lambda (proc-value args)
     (cases proc-val proc-value
       [prim-proc (op) (apply-prim-proc op args)]
-
-      
+      [lambda-proc (vars bodies env)
+           ; 1. evaluate operators (vars?)
+           ; 2. create new environment
+           ; 3. evaluate body within the new environment
+         (let* ([args (eval-rands env vars)] ; 1.
+                [new-env (extended-env-record vars ; 2. list of symbols
+                                  args ; list of evaluated exps
+                                  env)])   
+           ; 3.
+           (eval-exp new-env bodies)
+           )
+                ]
       ; You will add other cases
       [else (error 'apply-proc
                    "Attempt to apply bad procedure: ~s" 
@@ -442,9 +460,12 @@
 
 
 ;; TESTING
+; (parse-exp '(lambda (x) (+ 1 x)))
+(eval-one-exp '(lambda (x) (+ 1 x)))
+
 ;; LITERALS
-(parse-exp '(car (cdr '(a b c))))
-(eval-one-exp '(car (cdr '(a b c)))); '() 1] ; (run-test literals 1)
+; (parse-exp '(car (cdr '(a b c))))
+; (eval-one-exp '(car (cdr '(a b c)))); '() 1] ; (run-test literals 1)
 ;(eval-one-exp #t); #t 1] ; (run-test literals 2)
 ;(eval-one-exp #f) ;#f 1] ; (run-test literals 3)
 ;(eval-one-exp "") ;'"" 1] ; (run-test literals 4)
