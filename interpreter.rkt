@@ -92,7 +92,7 @@
    (var symbol?)
    (val-exp expression?)]
   [begin-exp
-   (bodies (list-of? expression?))]
+    (bodies (list-of? expression?))]
   [app-exp
    (rator expression?)
    (rand (list-of? expression?))]
@@ -128,7 +128,7 @@
    (vars symbol-or-list-symbol?)
    (bodies (list-of? expression?))
    (env environment?)]
-)
+  )
 
   
 ;-------------------+
@@ -150,7 +150,7 @@
        (cond
          ; if its a pair, but not a list then error, invalid pair
          [(not (list? datum))
-           (error 'parse-exp "expression is not a proper list: ~s" datum)]
+          (error 'parse-exp "expression is not a proper list: ~s" datum)]
          
          ; QUOTED (quote ...)
          [(eqv? (car datum) 'quote)
@@ -162,42 +162,42 @@
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
           (if (< (length datum) 3)
-               (error 'parse-exp "lambda requires parameters and body: ~s" datum)
-               (let ([args (2nd datum)]
-                     [bodies (cddr datum)])
-                 (cond                    ;; Single symbol argument (lambda x body ...)
-                   [(symbol? args)
-                    (lambda-exp args (map parse-exp bodies))]
+              (error 'parse-exp "lambda requires parameters and body: ~s" datum)
+              (let ([args (2nd datum)]
+                    [bodies (cddr datum)])
+                (cond                    ;; Single symbol argument (lambda x body ...)
+                  [(symbol? args)
+                   (lambda-exp args (map parse-exp bodies))]
                    
-                   ;; list of symbols for args
-                   [((list-of? symbol?) args)
-                    (if (unique-symbols? args)
-                        (lambda-exp args (map parse-exp bodies))
-                        (error 'parse-exp "cannot have duplicate args in lambda exp: ~s" datum))]
+                  ;; list of symbols for args
+                  [((list-of? symbol?) args)
+                   (if (unique-symbols? args)
+                       (lambda-exp args (map parse-exp bodies))
+                       (error 'parse-exp "cannot have duplicate args in lambda exp: ~s" datum))]
                     
-                [else (error 'parse-exp "invalid lambda expression: ~s" datum)])))]
+                  [else (error 'parse-exp "invalid lambda expression: ~s" datum)])))]
          
          ; Normal LET-EXP, LET*-EXP, LETREC-EXP (let ([id val-expr] ...) body ...+)
          [(and (or (eqv? (car datum) 'let*)
                    (eqv? (car datum) 'letrec)
                    (and (eqv? (car datum) 'let)
                         (not (symbol? (cadr datum)))))
-          (cond
-            [(< (length datum) 3)
-             (error 'parse-exp "let expression too short: ~s" datum)]
-            [(or (not(list? (2nd datum))) (not (andmap pair? (2nd datum))))
-             (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
-            [(not (andmap list? (2nd datum)))
-             (error 'parse-exp "all let var-exp bindings need to be pairs: ~s" datum)]
-            [(not (andmap  (lambda (lst) (= 2 (length lst))) (2nd datum)))
-             (error 'parse-exp "each let var-exp binding needs to be length 2: ~s" datum)]
-            [(not (andmap  (lambda (lst) (symbol? (car lst))) (2nd datum)))
-             (error 'parse-exp "all let vars names need to be symbols: ~s" datum)]
-            [else (let-exp
-                   (car datum)
-                   (map 1st (2nd datum))
-                   (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
-                   (map parse-exp (cddr datum)))]))]
+               (cond
+                 [(< (length datum) 3)
+                  (error 'parse-exp "let expression too short: ~s" datum)]
+                 [(or (not(list? (2nd datum))) (not (andmap pair? (2nd datum))))
+                  (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
+                 [(not (andmap list? (2nd datum)))
+                  (error 'parse-exp "all let var-exp bindings need to be pairs: ~s" datum)]
+                 [(not (andmap  (lambda (lst) (= 2 (length lst))) (2nd datum)))
+                  (error 'parse-exp "each let var-exp binding needs to be length 2: ~s" datum)]
+                 [(not (andmap  (lambda (lst) (symbol? (car lst))) (2nd datum)))
+                  (error 'parse-exp "all let vars names need to be symbols: ~s" datum)]
+                 [else (let-exp
+                        (car datum)
+                        (map 1st (2nd datum))
+                        (map (lambda (b) (parse-exp (2nd b))) (2nd datum))
+                        (map parse-exp (cddr datum)))]))]
 
          ; Named LET (let name ([id val-expr] ...) body)
          [(eqv? (car datum) 'let)
@@ -340,14 +340,14 @@
                ; 1. evaluate var-exp list
                ; 2. make a new environment
                (let [(new-env (extended-env-record (list (car vars)) ; list of symbols
-                                  (list (eval-exp env (car var-exp))) ; list of evaluated exps
-                                  env))] ; parent env
+                                                   (list (eval-exp env (car var-exp))) ; list of evaluated exps
+                                                   env))] ; parent env
                  ; 3. evaluate the bodies in new-env
                  (eval-exp new-env (car bodies))
                  )]
       [lambda-exp (ids bodies)
-               ; returns a closure 'lambda-proc'
-               (lambda-proc ids bodies env)]
+                  ; returns a closure 'lambda-proc'
+                  (lambda-proc ids bodies env)]
       [begin-exp (bodies)
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
       [app-exp (rator rands)
@@ -372,16 +372,16 @@
     (cases proc-val proc-value
       [prim-proc (op) (apply-prim-proc op args)]
       [lambda-proc (vars bodies env)
-           ; 1. evaluate operators (vars?)
-           ; 2. create new environment
-           ; 3. evaluate body within the new environment
-         (let ([new-env (extended-env-record vars ; 2. list of symbols
-                                  args ; list of evaluated exps
-                                  env)])   
-           ; 3.
-           (last (map (lambda (body) (eval-exp new-env body)) bodies))
-           )
-                ]
+                   ; 1. evaluate operators (vars?)
+                   ; 2. create new environment
+                   ; 3. evaluate body within the new environment
+                   (let ([new-env (extended-env-record vars ; 2. list of symbols
+                                                       args ; list of evaluated exps
+                                                       env)])   
+                     ; 3.
+                     (last (map (lambda (body) (eval-exp new-env body)) bodies))
+                     )
+                   ]
       ; You will add other cases
       [else (error 'apply-proc
                    "Attempt to apply bad procedure: ~s" 
@@ -451,11 +451,11 @@
 (define replace-lambdas
   (lambda (answer)
     (cond [(empty? answer) '()]
-        [(list? answer)
-         (if (equal? (car answer) 'lambda-proc)
-             '<interpreter-procedure>
-             (cons (replace-lambdas (car answer)) (replace-lambdas (cdr answer))))]
-        [else answer])))
+          [(pair? answer)
+           (if (equal? (first answer) 'lambda-proc)
+               '<interpreter-procedure>
+               (cons (replace-lambdas (first answer)) (replace-lambdas (cdr answer))))]
+          [else answer])))
         
 
 (define rep      ; "read-eval-print" loop.
@@ -469,14 +469,14 @@
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
-  (lambda (x) (top-level-eval (parse-exp x))))
+  (lambda (x) (replace-lambdas (top-level-eval (parse-exp x)))))
 
 
 ;; TESTING
-(eval-one-exp '(list (lambda (x) x) (lambda (y) y)))
-; (eval-one-exp '(list (lambda (x) x) (lambda (y) y)))
+(parse-exp '(begin (lambda (x) 3) (lambda (y) 4)))
+(eval-one-exp '(begin (lambda (x) 3) (lambda (y) 4)))
 
-(replace-lambdas (eval-one-exp '((lambda (x) x))))
+
 ; (<interpreter-procedure> <interpreter-procedure> <interpreter-procedure>) 
 
 ;; LAMBDA
