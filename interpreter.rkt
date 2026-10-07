@@ -452,9 +452,9 @@
   (lambda (answer)
     (cond [(empty? answer) '()]
           [(pair? answer)
-           (if (equal? (first answer) 'lambda-proc)
+           (if (equal? (1st answer) 'lambda-proc)
                '<interpreter-procedure>
-               (cons (replace-lambdas (first answer)) (replace-lambdas (cdr answer))))]
+               (cons (replace-lambdas (1st answer)) (replace-lambdas (cdr answer))))]
           [else answer])))
         
 
