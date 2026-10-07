@@ -126,7 +126,7 @@
    (name symbol?)]
   [lambda-proc
    (vars symbol-or-list-symbol?)
-   (exps (list-of? expression?))
+   (bodies (list-of? expression?))
    (env environment?)]
 )
 
@@ -375,12 +375,11 @@
            ; 1. evaluate operators (vars?)
            ; 2. create new environment
            ; 3. evaluate body within the new environment
-         (let* ([args (eval-rands env vars)] ; 1.
-                [new-env (extended-env-record vars ; 2. list of symbols
+         (let ([new-env (extended-env-record vars ; 2. list of symbols
                                   args ; list of evaluated exps
                                   env)])   
            ; 3.
-           (eval-exp new-env bodies)
+           (last (map (lambda (body) (eval-exp new-env body)) bodies))
            )
                 ]
       ; You will add other cases
@@ -393,7 +392,7 @@
       not = >= car
       zero? null? eq? equal? list? pair? vector? number? symbol?
       procedure?
-      cons list length
+      cons list length vector vector-set! vector-ref
       list->vector vector->list))
 
 (define init-env         ; for now, our initial global environment only contains 
@@ -426,7 +425,7 @@
       [(pair?) (pair? (1st args))]
       [(number?) (number? (1st args))]
       [(vector?) (vector? (1st args))]
-      [(procedure?) (procedure? (1st args))]
+      [(procedure?) (proc-val? (1st args))]
       [(=) (apply = args)]
       [(>=) (apply >= args)]
       
@@ -436,6 +435,9 @@
       [(length) (apply length args)]
       [(list->vector) (apply list->vector args)]
       [(vector->list) (apply vector->list args)]
+      [(vector) (apply vector args)]
+      [(vector-set!) (vector-set! (1st args) (2nd args) (3rd args))]
+      [(vector-ref) (vector-ref (1st args) (2nd args))]
       
       ; keep going .. 
       [else
@@ -446,13 +448,24 @@
          [else
           (error 'apply-prim-proc "Bad primitive procedure name: ~s" prim-proc)])])))
 
+(define replace-lambdas
+  (lambda (answer)
+    (cond [(empty? answer) '()]
+        [(list? answer)
+         (if (equal? (car answer) 'lambda-proc)
+             '<interpreter-procedure>
+             (cons (replace-lambdas (car answer)) (replace-lambdas (cdr answer))))]
+        [else answer])))
+        
+
 (define rep      ; "read-eval-print" loop.
   (lambda ()
     (display "--> ")
     ;; notice that we don't save changes to the environment...
     (let ([answer (top-level-eval (parse-exp (read)))])
       ;; TODO: are there answers that should display differently?
-      (pretty-print answer) (newline)
+      ;; go through answer and replace lambda-exp with <interpreter-procedure>
+      (pretty-print (replace-lambdas answer)) (newline)
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
@@ -460,8 +473,15 @@
 
 
 ;; TESTING
-; (parse-exp '(lambda (x) (+ 1 x)))
-(eval-one-exp '(lambda (x) (+ 1 x)))
+(eval-one-exp '(list (lambda (x) x) (lambda (y) y)))
+; (eval-one-exp '(list (lambda (x) x) (lambda (y) y)))
+
+(replace-lambdas (eval-one-exp '((lambda (x) x))))
+; (<interpreter-procedure> <interpreter-procedure> <interpreter-procedure>) 
+
+;; LAMBDA
+;(parse-exp '((lambda (x) (+ 1 x)) 1))
+; (eval-one-exp '((lambda (x) (+ 1 x)) 1))
 
 ;; LITERALS
 ; (parse-exp '(car (cdr '(a b c))))
