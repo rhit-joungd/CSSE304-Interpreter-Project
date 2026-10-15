@@ -302,6 +302,9 @@
 
 ; To be added in assignment 14.
 
+
+
+
 ;---------------------------------------+
 ;                                       |
 ; sec:CONTINUATION DATATYPE and APPLY-K |
@@ -340,7 +343,10 @@
               ; 1. evaluate test-exp --> 2. pick which 
               (if (eval-exp env test-exp)
                   (eval-exp env then-exp)
-                  (eval-exp env else-exp))]
+                  ; if one-sided if
+                  (if (empty? else-exp)
+                      (void)
+                      (eval-exp env else-exp)))]
       [let-exp (type vars var-exp bodies)
                ; example with a single of each
                ; 1. evaluate var-exp list
@@ -479,14 +485,17 @@
 
 
 ;; TESTING
-(parse-exp '(begin (lambda (x) 3) (lambda (y) 4)))
-(eval-one-exp '(begin (lambda (x) 3) (lambda (y) 4)))
+
 
 
 ; (<interpreter-procedure> <interpreter-procedure> <interpreter-procedure>) 
 
+;; IF, one arms
+(parse-exp '(if (= 1 2) 1))
+(eval-one-exp '(if (= 1 2) 1))
+
 ;; LAMBDA
-;(parse-exp '((lambda (x) (+ 1 x)) 1))
+; (parse-exp '((lambda (x) (+ 1 x)) 1))
 ; (eval-one-exp '((lambda (x) (+ 1 x)) 1))
 
 ;; LITERALS
