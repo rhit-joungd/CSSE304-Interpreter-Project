@@ -9,6 +9,12 @@
 ;                   |
 ;-------------------+
 
+(provide add-macro-interpreter)
+(define add-macro-interpreter (lambda x (error "nyi")))
+(provide quasiquote-enabled?)
+(define quasiquote-enabled?
+         (lambda () (error "nyi"))) ; make this return 'yes if you're trying quasiquote
+
 ; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
   (lambda (lst)

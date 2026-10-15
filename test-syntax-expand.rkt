@@ -12,8 +12,7 @@
 (provide get-weights get-names individual-test test)
 
 (define test (make-test ; (r)
-
-              
+       
   (let equal? ; (run-test literals)
     [(eval-one-exp '(let () 3)) 3 1] ; (run-test literals 1)
     [(eval-one-exp '(let () 3 4 5)) 5 1] ; (run-test literals 2)
