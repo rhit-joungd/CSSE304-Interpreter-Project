@@ -373,7 +373,16 @@
                           [else (if-exp (syntax-expand (car exps))
                                         (syntax-expand (and-exp (cdr exps)))
                                         (lit-exp #f))])]
-           [or-exp (exps) (car exps)]
+
+           ; or --> ifs
+           [or-exp (exps)
+                   (cond [(null? exps) (lit-exp #t)] ; no exps
+                         ; on last expression left
+                         [(null? (cdr exp)) (syntax-expand (car exps))]
+                         ; else crease an if statement
+                         [else (if-exp (syntax-expand (car exps))
+                                       (lit-exp #t)
+                                       (syntax-expand (or-exp (cdr exps))))])]
    )))
 
 
@@ -558,13 +567,17 @@
 
 ;; TESTING
 
-
-;; AND and OR
+;; OR
 ; (parse-exp '(or (= 1 2) (equal? 'test 'test)))
-; (parse-exp '(and (= 1 2) (equal? 'test 'test)))
+(syntax-expand (parse-exp '(or (= 1 2) (equal? 'test 'test))))
+(unparse-exp (syntax-expand (parse-exp '(or (= 1 2) (equal? 'test 'test)))))
+(eval-one-exp '(or (= 1 2) (equal? 'test 'test)))
 
-(syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test))))
-(unparse-exp (syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test)))))
+;; AND 
+; (parse-exp '(and (= 1 2) (equal? 'test 'test)))
+; (syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test))))
+; (unparse-exp (syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test)))))
+(eval-one-exp '(and (= 1 2) (equal? 'test 'test)))
 
 ;; IF, one arms
 ;(parse-exp '(if (= 1 2) 1))
