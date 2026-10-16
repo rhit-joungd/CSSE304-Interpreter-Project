@@ -102,6 +102,10 @@
   [app-exp
    (rator expression?)
    (rand (list-of? expression?))]
+  [and-exp
+   (exps (list-of? expression?))]
+  [or-exp
+   (exps (list-of? expression?))]
   )
 
 	
@@ -246,6 +250,13 @@
          ;BEGIN-EXP
          [(eqv? (1st datum) 'begin)
           (begin-exp (map parse-exp (cdr datum)))]
+
+         ; AND & OR
+         [(eqv? (1st datum) 'and)
+          (and-exp (map parse-exp (cdr datum)))]
+         
+         [(eqv? (1st datum) 'or)
+          (or-exp (map parse-exp (cdr datum)))]
          
          ; Procedure application (app-exp)
          [else
@@ -303,15 +314,24 @@
 (define syntax-expand
     (lambda (exp)
         (cases expression exp
-            [var-exp (symbol) exp] ;; do nothing
-            [lit-exp (literal) exp] ;; do nothing
+            [var-exp (id) exp] ;; do nothing
+            [lit-exp (data) exp] ;; do nothing
+            [lambda-exp (ids bodies) exp]
+            [let-exp (type ids vals bodies) exp]
+            [namedlet-exp (name ids vals bodies) exp]
+            [if-exp (test-exp then-exp else-exp) exp]
+            [set!-exp (var var-exp) exp]
+            [begin-exp (bodies) exp]
+            [app-exp (rator rand) exp]
             [and-exp (exps)
                     (cond [(null? exps) (lit-exp #t)]
                           [(null? (cdr exps)) (syntax-expand (car exps))]
                           [else (if-exp (syntax-expand (car exps))
                                         (syntax-expand (and-exp (cdr exps)))
                                         (lit-exp #f))])]
+           [or-exp (exps) (car exps)]
    )))
+
 
 ;---------------------------------------+
 ;                                       |
