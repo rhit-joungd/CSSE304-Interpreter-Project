@@ -13,7 +13,7 @@
 (define add-macro-interpreter (lambda x (error "nyi")))
 (provide quasiquote-enabled?)
 (define quasiquote-enabled?
-         (lambda () (error "nyi"))) ; make this return 'yes if you're trying quasiquote
+  (lambda () (error "nyi"))) ; make this return 'yes if you're trying quasiquote
 
 ; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
@@ -94,6 +94,7 @@
    (test-exp expression?)
    (then-exp expression?)
    (else-exp (lambda (x) (or (null? x) (expression? x))))] ; null if no else clause
+  [cond-exp (clauses list?)]
   [set!-exp
    (var symbol?)
    (val-exp expression?)]
@@ -239,6 +240,15 @@
               [else
                (error 'parse-exp "if expression invalid num arguments: ~s" datum)]))]
 
+         ; COND EXP
+         [(eqv? (car datum) 'cond)
+          (cond-exp
+           (map (lambda (clause)
+                  (if (eqv? (car clause) 'else)
+                      (cons 'else (map parse-exp (cdr clause)))
+                      (map parse-exp clause)))
+                (cdr datum)))]
+
          ; SET-EXP 
          [(eqv? (1st datum) 'set!)
           (if (= (length datum) 3)
@@ -246,7 +256,7 @@
                   (set!-exp (2nd datum) (parse-exp (3rd datum)))
                   (error 'parse-exp "set variable must be a symbol ~s" datum))
               (error 'parse-exp "set needs 2 arguments: ~s" datum))]
-
+         
          ;BEGIN-EXP
          [(eqv? (1st datum) 'begin)
           (begin-exp (map parse-exp (cdr datum)))]
@@ -281,26 +291,37 @@
                       (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
                 (map unparse-exp bodies))]
       [namedlet-exp (name ids vars bodies)
-               (append 
-                (list 'let name
-                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
-                (map unparse-exp bodies))]
+                    (append 
+                     (list 'let name
+                           (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                     (map unparse-exp bodies))]
       [if-exp (test-exp then-exp else-exp)
               (if (null? else-exp)
                   (list 'if (unparse-exp test-exp) (unparse-exp then-exp))
                   (list 'if (unparse-exp test-exp) (unparse-exp then-exp) (unparse-exp else-exp)))]
 
+      [cond-exp (clauses)
+                (cons 'cond
+                      (map
+                       (lambda (clause)
+                         (cons
+                          (if (eqv? (car clause) 'else)
+                              'else
+                              (unparse-exp (car clause)))
+                          (map unparse-exp (cdr clause))))
+                       clauses))]
+      
       [set!-exp (var val-exp)
                 (list 'set! var (unparse-exp val-exp))]
 
       [begin-exp (bodies)
-         (list 'begin (map unparse-exp bodies))]
+                 (list 'begin (map unparse-exp bodies))]
 
       [and-exp (bodies)
-         (list 'and (map unparse-exp bodies))]
+               (list 'and (map unparse-exp bodies))]
 
       [or-exp (bodies)
-         (list 'or (map unparse-exp bodies))]
+              (list 'or (map unparse-exp bodies))]
 
       [app-exp (rator rand)
                (cons (unparse-exp rator)
@@ -354,40 +375,44 @@
 ;-----------------------+
 
 (define syntax-expand
-    (lambda (exp)
-        (cases expression exp
-            [var-exp (id) exp] ;; do nothing
-            [lit-exp (data) exp] ;; do nothing
-            [lambda-exp (ids bodies) exp]
-            [let-exp (type ids vals bodies) exp]
-            [namedlet-exp (name ids vals bodies) exp]
-            [if-exp (test-exp then-exp else-exp) exp]
-            [set!-exp (var var-exp) exp]
+  (lambda (exp)
+    (cases expression exp
+      [var-exp (id) exp] ;; do nothing
+      [lit-exp (data) exp] ;; do nothing
+      [lambda-exp (ids bodies) exp]
+      [let-exp (type ids vals bodies) exp]
+      [namedlet-exp (name ids vals bodies) exp]
+      [if-exp (test-exp then-exp else-exp) exp]
+      [set!-exp (var var-exp) exp]
+      [app-exp (rator rand) exp]
           
-            [begin-exp (bodies)
-                       (app-exp
-                        (lambda-exp '() (map syntax-expand bodies))
-                        '())]
-            [app-exp (rator rand) exp]
+      ; begin --> application expression
+      [begin-exp (bodies)
+                 (app-exp
+                  (lambda-exp '() (map syntax-expand bodies))
+                  '())]
+          
+      ; cond --> ifs
+      [cond-exp (exps) (car exps)]
+          
+      ; and --> ifs 
+      [and-exp (exps)
+               (cond [(null? exps) (lit-exp #t)]
+                     [(null? (cdr exps)) (syntax-expand (car exps))]
+                     [else (if-exp (syntax-expand (car exps))
+                                   (syntax-expand (and-exp (cdr exps)))
+                                   (lit-exp #f))])]
 
-            ; and --> ifs 
-            [and-exp (exps)
-                    (cond [(null? exps) (lit-exp #t)]
-                          [(null? (cdr exps)) (syntax-expand (car exps))]
-                          [else (if-exp (syntax-expand (car exps))
-                                        (syntax-expand (and-exp (cdr exps)))
-                                        (lit-exp #f))])]
-
-           ; or --> ifs
-           [or-exp (exps)
-                   (cond [(null? exps) (lit-exp #f)] ; no exps
-                         ; on last expression left
-                         [(null? (cdr exp)) (syntax-expand (car exps))]
-                         ; else crease an if statement
-                         [else (if-exp (syntax-expand (car exps))
-                                       (syntax-expand (car exps))
-                                       (syntax-expand (or-exp (cdr exps))))])]
-   )))
+      ; or --> ifs
+      [or-exp (exps)
+              (cond [(null? exps) (lit-exp #f)] ; no exps
+                    ; on last expression left
+                    [(null? (cdr exp)) (syntax-expand (car exps))]
+                    ; else crease an if statement
+                    [else (if-exp (syntax-expand (car exps))
+                                  (syntax-expand (car exps))
+                                  (syntax-expand (or-exp (cdr exps))))])]
+      )))
 
 
 ;---------------------------------------+
@@ -575,10 +600,13 @@
 
 ;; TESTING
 
+;; COND
+(unparse-exp (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
+
 ;; BEGIN
-(parse-exp '(begin))
-(syntax-expand (parse-exp '(begin (if (= 1 1) 'test1 'test2))))
-(eval-one-exp '(begin (if (= 1 1) 'test1 'test2)))
+;(parse-exp '(begin))
+;(syntax-expand (parse-exp '(begin (if (= 1 1) 'test1 'test2))))
+;(eval-one-exp '(begin (if (= 1 1) 'test1 'test2)))
 
 ;; OR
 ;(parse-exp '(or (= 1 2) (equal? 'test 'test)))
