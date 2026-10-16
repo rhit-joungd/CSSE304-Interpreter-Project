@@ -363,7 +363,11 @@
             [namedlet-exp (name ids vals bodies) exp]
             [if-exp (test-exp then-exp else-exp) exp]
             [set!-exp (var var-exp) exp]
-            [begin-exp (bodies) exp]
+          
+            [begin-exp (bodies)
+                       (app-exp
+                        (lambda-exp '() (map syntax-expand bodies))
+                        '())]
             [app-exp (rator rand) exp]
 
             ; and --> ifs 
@@ -376,12 +380,12 @@
 
            ; or --> ifs
            [or-exp (exps)
-                   (cond [(null? exps) (lit-exp #t)] ; no exps
+                   (cond [(null? exps) (lit-exp #f)] ; no exps
                          ; on last expression left
                          [(null? (cdr exp)) (syntax-expand (car exps))]
                          ; else crease an if statement
                          [else (if-exp (syntax-expand (car exps))
-                                       (lit-exp #t)
+                                       (syntax-expand (car exps))
                                        (syntax-expand (or-exp (cdr exps))))])]
    )))
 
@@ -441,8 +445,10 @@
       [lambda-exp (ids bodies)
                   ; returns a closure 'lambda-proc'
                   (lambda-proc ids bodies env)]
-      [begin-exp (bodies)
-                 (last (map (lambda (b) (eval-exp env b)) bodies))]
+      #| [begin-exp (bodies)
+                    (if (empty? bodies)
+                        (void)
+                     (last (map (lambda (b) (eval-exp env b)) bodies)))] |#
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
                      [args (eval-rands env rands)])    ; then evaluate operands
@@ -472,7 +478,9 @@
                                                        args ; list of evaluated exps
                                                        env)])   
                      ; 3.
-                     (last (map (lambda (body) (eval-exp new-env body)) bodies))
+                     (if (empty? bodies)
+                         (void)
+                         (last (map (lambda (body) (eval-exp new-env body)) bodies)))
                      )
                    ]
       ; You will add other cases
@@ -567,17 +575,25 @@
 
 ;; TESTING
 
+;; BEGIN
+(parse-exp '(begin))
+(syntax-expand (parse-exp '(begin (if (= 1 1) 'test1 'test2))))
+(eval-one-exp '(begin (if (= 1 1) 'test1 'test2)))
+
 ;; OR
-; (parse-exp '(or (= 1 2) (equal? 'test 'test)))
-(syntax-expand (parse-exp '(or (= 1 2) (equal? 'test 'test))))
-(unparse-exp (syntax-expand (parse-exp '(or (= 1 2) (equal? 'test 'test)))))
-(eval-one-exp '(or (= 1 2) (equal? 'test 'test)))
+;(parse-exp '(or (= 1 2) (equal? 'test 'test)))
+;(syntax-expand (parse-exp '(or (= 1 2) (equal? 'test 'test2))))
+;(unparse-exp (syntax-expand (parse-exp '(or (= 1 2) (equal? 'test 'test)))))
+;(eval-one-exp '(or (= 1 2) (equal? 'test 'test2)))
 
 ;; AND 
 ; (parse-exp '(and (= 1 2) (equal? 'test 'test)))
 ; (syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test))))
 ; (unparse-exp (syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test)))))
-(eval-one-exp '(and (= 1 2) (equal? 'test 'test)))
+; (eval-one-exp '(and (= 1 2) (equal? 'test 'test)))
+
+; (parse-exp ((lambda (v) (and 3 ((lambda () (vector-set! v 1 42) #f)) 5)) (vector 3 4 5)))
+
 
 ;; IF, one arms
 ;(parse-exp '(if (= 1 2) 1))
