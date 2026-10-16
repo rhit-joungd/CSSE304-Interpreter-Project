@@ -265,6 +265,48 @@
 
       [else (error 'parse-exp "bad expression, not found in parser: ~s" datum)])))
 
+;; UNPARSER
+(define unparse-exp
+  (lambda (exp)
+    (cases expression exp
+      [var-exp (id) id]
+      [lit-exp (data)
+               data]
+      [lambda-exp (ids bodies)
+                  (cons 'lambda
+                        (cons ids (map unparse-exp bodies)))]
+      [let-exp (type ids vars bodies)
+               (append
+                (list type
+                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                (map unparse-exp bodies))]
+      [namedlet-exp (name ids vars bodies)
+               (append 
+                (list 'let name
+                      (map (lambda (x exp) (list x (unparse-exp exp))) ids vars))
+                (map unparse-exp bodies))]
+      [if-exp (test-exp then-exp else-exp)
+              (if (null? else-exp)
+                  (list 'if (unparse-exp test-exp) (unparse-exp then-exp))
+                  (list 'if (unparse-exp test-exp) (unparse-exp then-exp) (unparse-exp else-exp)))]
+
+      [set!-exp (var val-exp)
+                (list 'set! var (unparse-exp val-exp))]
+
+      [begin-exp (bodies)
+         (list 'begin (map unparse-exp bodies))]
+
+      [and-exp (bodies)
+         (list 'and (map unparse-exp bodies))]
+
+      [or-exp (bodies)
+         (list 'or (map unparse-exp bodies))]
+
+      [app-exp (rator rand)
+               (cons (unparse-exp rator)
+                     (map unparse-exp rand))]
+      )))
+
 
 ;-------------------+
 ;                   |
@@ -323,6 +365,8 @@
             [set!-exp (var var-exp) exp]
             [begin-exp (bodies) exp]
             [app-exp (rator rand) exp]
+
+            ; and --> ifs 
             [and-exp (exps)
                     (cond [(null? exps) (lit-exp #t)]
                           [(null? (cdr exps)) (syntax-expand (car exps))]
@@ -515,12 +559,16 @@
 ;; TESTING
 
 
+;; AND and OR
+; (parse-exp '(or (= 1 2) (equal? 'test 'test)))
+; (parse-exp '(and (= 1 2) (equal? 'test 'test)))
 
-; (<interpreter-procedure> <interpreter-procedure> <interpreter-procedure>) 
+(syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test))))
+(unparse-exp (syntax-expand (parse-exp '(and (= 1 2) (equal? 'test 'test)))))
 
 ;; IF, one arms
-(parse-exp '(if (= 1 2) 1))
-(eval-one-exp '(if (= 1 2) 1))
+;(parse-exp '(if (= 1 2) 1))
+;(eval-one-exp '(if (= 1 2) 1))
 
 ;; LAMBDA
 ; (parse-exp '((lambda (x) (+ 1 x)) 1))
@@ -535,7 +583,6 @@
 ;(eval-one-exp "test") ;'"test" 1] ; (run-test literals 5)
 ;(eval-one-exp ''#(a b c)); #(a b c) 1] ; (run-test literals 6)
 ;(eval-one-exp ''#5(a)) ;#5(a) 1] ; (run-test literals 7)
-
 
 
 
