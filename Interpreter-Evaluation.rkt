@@ -379,12 +379,18 @@
     (cases expression exp
       [var-exp (id) exp] ;; do nothing
       [lit-exp (data) exp] ;; do nothing
-      [lambda-exp (ids bodies) exp]
+      
+      [lambda-exp (ids bodies)
+                  (lambda-exp ids (map syntax-expand bodies))]
+      
       [let-exp (type ids vals bodies) exp]
       [namedlet-exp (name ids vals bodies) exp]
       [if-exp (test-exp then-exp else-exp) exp]
       [set!-exp (var var-exp) exp]
-      [app-exp (rator rand) exp]
+      
+      [app-exp (rator rands)
+               (app-exp (syntax-expand rator)
+                        (map syntax-expand rands))]
           
       ; begin --> application expression
       [begin-exp (bodies)
@@ -393,8 +399,19 @@
                   '())]
           
       ; cond --> ifs
-      [cond-exp (exps) (car exps)]
-          
+      [cond-exp (clauses)
+                (cond
+                  [(null? clauses)
+                   (app-exp (lambda-exp '() '()) '())]
+                  
+                  [(eq? (caar clauses) 'else)
+                   (syntax-expand (begin-exp (cdar clauses)))]
+
+                  [else
+                   (if-exp (syntax-expand (caar clauses))
+                           (syntax-expand (begin-exp (cdar clauses)))
+                           (syntax-expand (cond-exp (cdr clauses))))])]
+ 
       ; and --> ifs 
       [and-exp (exps)
                (cond [(null? exps) (lit-exp #t)]
@@ -457,6 +474,7 @@
                   (if (empty? else-exp)
                       (void)
                       (eval-exp env else-exp)))]
+      
       [let-exp (type vars var-exp bodies)
                ; example with a single of each
                ; 1. evaluate var-exp list
@@ -467,13 +485,11 @@
                  ; 3. evaluate the bodies in new-env
                  (eval-exp new-env (car bodies))
                  )]
+      
       [lambda-exp (ids bodies)
                   ; returns a closure 'lambda-proc'
                   (lambda-proc ids bodies env)]
-      #| [begin-exp (bodies)
-                    (if (empty? bodies)
-                        (void)
-                     (last (map (lambda (b) (eval-exp env b)) bodies)))] |#
+      
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
                      [args (eval-rands env rands)])    ; then evaluate operands
@@ -601,7 +617,7 @@
 ;; TESTING
 
 ;; COND
-(unparse-exp (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
+; (syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
 
 ;; BEGIN
 ;(parse-exp '(begin))
@@ -630,6 +646,8 @@
 ;; LAMBDA
 ; (parse-exp '((lambda (x) (+ 1 x)) 1))
 ; (eval-one-exp '((lambda (x) (+ 1 x)) 1))
+(parse-exp '((lambda (x) (cond [(= x 3) (+ x 3)][(= x 7) (+ x 7)][else (+ x 9)][(= x 10)(+ x 10)])) 3))
+(eval-one-exp '((lambda (x) (cond [(= x 3) (+ x 3)][(= x 7) (+ x 7)][else (+ x 9)][(= x 10)(+ x 10)])) 3))
 
 ;; LITERALS
 ; (parse-exp '(car (cdr '(a b c))))
