@@ -300,10 +300,18 @@
 ;                       |
 ;-----------------------+
 
-; To be added in assignment 14.
-
-
-
+(define syntax-expand
+    (lambda (exp)
+        (cases expression exp
+            [var-exp (symbol) exp] ;; do nothing
+            [lit-exp (literal) exp] ;; do nothing
+            [and-exp (exps)
+                    (cond [(null? exps) (lit-exp #t)]
+                          [(null? (cdr exps)) (syntax-expand (car exps))]
+                          [else (if-exp (syntax-expand (car exps))
+                                        (syntax-expand (and-exp (cdr exps)))
+                                        (lit-exp #f))])]
+   )))
 
 ;---------------------------------------+
 ;                                       |
@@ -474,14 +482,14 @@
   (lambda ()
     (display "--> ")
     ;; notice that we don't save changes to the environment...
-    (let ([answer (top-level-eval (parse-exp (read)))])
+    (let ([answer (top-level-eval (syntax-expand (parse-exp (read))))])
       ;; TODO: are there answers that should display differently?
       ;; go through answer and replace lambda-exp with <interpreter-procedure>
       (pretty-print (replace-lambdas answer)) (newline)
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
-  (lambda (x) (replace-lambdas (top-level-eval (parse-exp x)))))
+  (lambda (x) (replace-lambdas (top-level-eval (syntax-expand (parse-exp x))))))
 
 
 ;; TESTING
