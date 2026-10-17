@@ -124,6 +124,9 @@
    (then-exp expression?)
    (else-exp (lambda (x) (or (null? x) (expression? x))))] ; null if no else clause
   [cond-exp (clauses list?)]
+  [case-exp
+   (key expression?)
+   (clauses list?)]
   [set!-exp
    (var symbol?)
    (val-exp expression?)]
@@ -281,7 +284,7 @@
               [else
                (error 'parse-exp "if expression invalid num arguments: ~s" datum)]))]
 
-         ; COND EXP
+         ; COND-EXP
          [(eqv? (car datum) 'cond)
           (cond-exp
            (map (lambda (clause)
@@ -290,6 +293,22 @@
                       (map parse-exp clause)))
                 (cdr datum)))]
 
+;(syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
+
+         
+         ; CASE-EXP
+         [(eqv? (car datum) 'case)
+          (case-exp
+           (parse-exp (2nd datum)) ;key
+           (map (lambda (clause)
+                  (if (eqv? (car clause) 'else)
+                      (cons 'else (map parse-exp (cdr clause)))
+                      (map parse-exp clause)))
+                (cddr datum)))] ;input the bodies
+
+;(parse-exp '(case 3 ([(list 3 4) 5] [(list 1 2) 7])))
+
+         
          ; SET-EXP 
          [(eqv? (1st datum) 'set!)
           (if (= (length datum) 3)
@@ -330,6 +349,9 @@
       [lambda-exp (ids bodies)
                   (cons 'lambda
                         (cons ids (map unparse-exp bodies)))]
+      [nf-lambda-exp (ids bodies) ;NOT COMPLETE just placeholder
+                  (cons 'lambda
+                        (cons ids (map unparse-exp bodies)))]
       [let-exp (type ids vars bodies)
                (append
                 (list type
@@ -347,6 +369,17 @@
 
       [cond-exp (clauses)
                 (cons 'cond
+                      (map
+                       (lambda (clause)
+                         (cons
+                          (if (eqv? (car clause) 'else)
+                              'else
+                              (unparse-exp (car clause)))
+                          (map unparse-exp (cdr clause))))
+                       clauses))]
+
+      [case-exp (key clauses)
+                (list 'case (unparse-exp key)
                       (map
                        (lambda (clause)
                          (cons
@@ -483,6 +516,8 @@
                    (if-exp (syntax-expand (caar clauses))
                            (syntax-expand (begin-exp (cdar clauses)))
                            (syntax-expand (cond-exp (cdr clauses))))])]
+
+      
  
       ; and --> ifs 
       [and-exp (exps)
@@ -729,10 +764,15 @@
 ;; TESTING
 
 ;; LET
-(syntax-expand (parse-exp '(let () 3 4 5)))
+;(syntax-expand (parse-exp '(let () 3 4 5)))
 
 ;; COND
-; (syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
+;(syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
+
+;; CASE
+(parse-exp '(case 3 [(list 3 4) 5]))
+
+(unparse-exp '(case-exp (lit-exp 3) ((((var-exp list) (lit-exp 3) (lit-exp 4)) (lit-exp 5)))))
 
 ;; BEGIN
 ;(parse-exp '(begin))
@@ -754,11 +794,11 @@
 ; (parse-exp ((lambda (v) (and 3 ((lambda () (vector-set! v 1 42) #f)) 5)) (vector 3 4 5)))
 
 ;; NF-LAMBDA tests
-(eval-one-exp '((lambda args args) 1 2 3))
-(eval-one-exp '((lambda args (car args)) 10 20 30))
-(eval-one-exp '((lambda (x y . rest) rest) 1 2 3 4 5))
-(eval-one-exp '((lambda (x y . rest) x) 1 2 3 4 5))
-(eval-one-exp '((lambda (x y . rest) rest) 1 2))
+;; (eval-one-exp '((lambda args args) 1 2 3))
+;; (eval-one-exp '((lambda args (car args)) 10 20 30))
+;; (eval-one-exp '((lambda (x y . rest) rest) 1 2 3 4 5))
+;; (eval-one-exp '((lambda (x y . rest) x) 1 2 3 4 5))
+;; (eval-one-exp '((lambda (x y . rest) rest) 1 2))
 
 ;; IF, one arms
 ;(parse-exp '(if (= 1 2) 1))
