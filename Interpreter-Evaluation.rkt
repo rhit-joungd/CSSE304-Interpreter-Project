@@ -586,9 +586,8 @@
                      (if (empty? bodies)
                          (void)
                          (last (map (lambda (body) (eval-exp new-env body)) bodies)))
-                     )
-                   ]
-                     (last (map (lambda (body) (eval-exp new-env body)) bodies)))]
+                     )]
+
       [nf-lambda-proc (vars bodies env)
                       (let loop ([remaining-vars vars] [remaining-args args] [symbols '()] [vals '()])
                         (cond
