@@ -421,6 +421,10 @@
       
       [lambda-exp (ids bodies)
                   (lambda-exp ids (map syntax-expand bodies))]
+
+      [nf-lambda-exp (ids bodies)
+                  ; returns a closure 'lambda-proc'
+                  (nf-lambda-exp ids (map syntax-expand bodies))]
       
       [let-exp (type ids vals bodies)
         (cond
