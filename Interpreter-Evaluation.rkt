@@ -383,9 +383,29 @@
       [lambda-exp (ids bodies)
                   (lambda-exp ids (map syntax-expand bodies))]
       
-      [let-exp (type ids vals bodies) exp]
+      [let-exp (type ids vals bodies)
+        (cond
+          [(eq? type 'let)
+           (app-exp
+             (lambda-exp ids (map syntax-expand bodies))
+             (map syntax-expand vals))]
+             
+          [(eq? type 'let*)
+           (if (null? ids)
+               (syntax-expand (begin-exp bodies))
+               ;; Expand let* into a single let containing a nested let* for the rest
+               (syntax-expand
+                 (let-exp 'let
+                          (list (car ids))
+                          (list (car vals))
+                          (list (let-exp 'let* (cdr ids) (cdr vals) bodies)))))]
+          
+          [else (error 'syntax-expand "unknown let type: ~s" type)])]
+      
       [namedlet-exp (name ids vals bodies) exp]
+      
       [if-exp (test-exp then-exp else-exp) exp]
+      
       [set!-exp (var var-exp) exp]
       
       [app-exp (rator rands)
@@ -475,7 +495,7 @@
                       (void)
                       (eval-exp env else-exp)))]
       
-      [let-exp (type vars var-exp bodies)
+     #| [let-exp (type vars var-exp bodies)
                ; example with a single of each
                ; 1. evaluate var-exp list
                ; 2. make a new environment
@@ -484,7 +504,7 @@
                                                    env))] ; parent env
                  ; 3. evaluate the bodies in new-env
                  (eval-exp new-env (car bodies))
-                 )]
+                 )]|#
       
       [lambda-exp (ids bodies)
                   ; returns a closure 'lambda-proc'
@@ -616,6 +636,9 @@
 
 ;; TESTING
 
+;; LET
+(syntax-expand (parse-exp '(let () 3 4 5)))
+
 ;; COND
 ; (syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
 
@@ -646,8 +669,8 @@
 ;; LAMBDA
 ; (parse-exp '((lambda (x) (+ 1 x)) 1))
 ; (eval-one-exp '((lambda (x) (+ 1 x)) 1))
-(parse-exp '((lambda (x) (cond [(= x 3) (+ x 3)][(= x 7) (+ x 7)][else (+ x 9)][(= x 10)(+ x 10)])) 3))
-(eval-one-exp '((lambda (x) (cond [(= x 3) (+ x 3)][(= x 7) (+ x 7)][else (+ x 9)][(= x 10)(+ x 10)])) 3))
+; (parse-exp '((lambda (x) (cond [(= x 3) (+ x 3)][(= x 7) (+ x 7)][else (+ x 9)][(= x 10)(+ x 10)])) 3))
+; (eval-one-exp '((lambda (x) (cond [(= x 3) (+ x 3)][(= x 7) (+ x 7)][else (+ x 9)][(= x 10)(+ x 10)])) 3))
 
 ;; LITERALS
 ; (parse-exp '(car (cdr '(a b c))))

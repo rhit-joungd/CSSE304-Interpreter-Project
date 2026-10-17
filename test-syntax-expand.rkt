@@ -13,7 +13,7 @@
 
 (define test (make-test ; (r)
        
-  #|(let equal? ; (run-test literals)
+  (let equal? ; (run-test literals)
        [(eval-one-exp '(let () 3)) 3 1] ; (run-test literals 1)
        [(eval-one-exp '(let () 3 4 5)) 5 1] ; (run-test literals 2)
        [(eval-one-exp '(let ([x 3]) 5 x)) 3 1] ; (run-test literals 3)
@@ -22,7 +22,7 @@
        [(eval-one-exp '(let ([x 3][y 42]) (let ([z y]) (+ z 1)) (let ([z x]) (+ z 1) z))) 3 2] ; (run-test literals 6)
        [(eval-one-exp '(let ([x 3][y 42]) (let ([z y]) (let ([z x]) (list z x y))))) '(3 3 42) 2] ; (run-test literals 7)
   ) 
-
+  
    (let* equal? ; (run-test literals)
     [(eval-one-exp '(let* () 3)) 3 1] ; (run-test literals 1)
     [(eval-one-exp '(let* () 3 4 5)) 5 1] ; (run-test literals 2)
@@ -30,7 +30,7 @@
     [(eval-one-exp '(let* ([x 3][y (+ x 1)]) (list x y))) '(3 4) 2] ; (run-test literals 4)
     [(eval-one-exp '(let* ([x 3][y (let ([z (+ x 1)]) z)]) (list x y))) '(3 4) 2] ; (run-test literals 5)
     [(eval-one-exp '(let* ([x 3][y (+ x 1)]) (let* ([z (+ y 1)][a (+ z 1)]) (let* ([b (+ a 1)]) (list x y z a b))))) '(3 4 5 6 7) 3] ; (run-test literals 6)
-  ) |#
+  )
 
    (and equal? ; (run-test literals)
     [(eval-one-exp '(and 3)) 3 1] ; (run-test literals 1)
