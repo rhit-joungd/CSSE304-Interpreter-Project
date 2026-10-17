@@ -61,7 +61,6 @@
     [(eval-one-exp '((lambda (v) (begin (vector-set! v 0 (+ (vector-ref v 0) 1)) (vector-set! v 0 (+ (vector-ref v 0) 1)) v)) (vector 5))) '#(7) 3] ; (run-test literals 5)
   )
 
-   #|
   (return-first equal? ; (run-test literals)
     [(eval-one-exp '(return-first)) (void) 1] ; (run-test literals 1)
     [(eval-one-exp '(return-first 3)) 3 1] ; (run-test literals 2)
@@ -71,7 +70,7 @@
                                                (vector-set! w 0 (+ (vector-ref w 0) 1))
                                                (vector-set! w 0 (+ (vector-ref w 0) 1))))
                      (vector 5))) '#(7) 3] ; (run-test literals 5)
-  )|#
+  )
 
   (cond equal? ; (run-test literals)
     [(eval-one-exp '(cond)) (void) 2] ; (run-test literals 1)

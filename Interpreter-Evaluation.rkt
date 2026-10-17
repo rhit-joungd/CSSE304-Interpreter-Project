@@ -129,6 +129,8 @@
    (val-exp expression?)]
   [begin-exp
     (bodies (list-of? expression?))]
+  [return-first-exp
+   (bodies (list-of? expression?))]
   [app-exp
    (rator expression?)
    (rand (list-of? expression?))]
@@ -306,6 +308,10 @@
          
          [(eqv? (1st datum) 'or)
           (or-exp (map parse-exp (cdr datum)))]
+
+         ; RETURN-FIRST-EXP
+         [(eqv? (1st datum) 'return-first)
+          (return-first-exp (map parse-exp (cdr datum)))]
          
          ; Procedure application (app-exp)
          [else
@@ -361,6 +367,9 @@
 
       [or-exp (bodies)
               (list 'or (map unparse-exp bodies))]
+
+      [return-first-exp (bodies)
+                       (cons 'return-first (map unparse-exp bodies))]
 
       [app-exp (rator rand)
                (cons (unparse-exp rator)
@@ -492,6 +501,23 @@
                     [else (if-exp (syntax-expand (car exps))
                                   (syntax-expand (car exps))
                                   (syntax-expand (or-exp (cdr exps))))])]
+
+      [return-first-exp (exps)
+        (cond
+          ;; want to return (void)
+          [(null? exps) 
+           (app-exp (lambda-exp '() '()) '())]
+           
+          [(null? (cdr exps)) 
+           (syntax-expand (car exps))]
+          
+          [else
+           (syntax-expand
+             (let-exp 'let
+                      (list 'temp-val)
+                      (list (car exps))
+                      (append (cdr exps) (list (var-exp 'temp-val)))) )])]
+      
       )))
 
 
