@@ -641,7 +641,6 @@
                    proc-value)])))
 
 
-
 (define *prim-proc-names*
   '(+ - * / add1 sub1
       not = >= car
@@ -754,6 +753,12 @@
 
 ; (parse-exp ((lambda (v) (and 3 ((lambda () (vector-set! v 1 42) #f)) 5)) (vector 3 4 5)))
 
+;; NF-LAMBDA tests
+(eval-one-exp '((lambda args args) 1 2 3))
+(eval-one-exp '((lambda args (car args)) 10 20 30))
+(eval-one-exp '((lambda (x y . rest) rest) 1 2 3 4 5))
+(eval-one-exp '((lambda (x y . rest) x) 1 2 3 4 5))
+(eval-one-exp '((lambda (x y . rest) rest) 1 2))
 
 ;; IF, one arms
 ;(parse-exp '(if (= 1 2) 1))
