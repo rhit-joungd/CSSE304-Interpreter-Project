@@ -18,15 +18,25 @@
 ; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
   (lambda (lst)
+    (let ([flat (improper-list-flattener lst)])
+      (cond
+        [(null? flat) #t]
+        [(member (car flat) (cdr flat)) #f]
+        [else (unique-symbols? (cdr flat))]))))
+
+;improper list flattener that flattens all elements of a improper list to a
+;normal list
+(define improper-list-flattener 
+  (lambda (lst)
     (cond
-      [(null? lst) #t]
-      [(member (car lst) (cdr lst)) #f]
-      [else (unique-symbols? (cdr lst))])))
+      [(null? lst) '()]
+      [(symbol? lst) (list lst)]
+      [(pair? lst) (cons (car lst) (improper-list-flattener (cdr lst)))])))
 
 ; lambda arguments can be a symbol or list of symbols
 (define symbol-or-list-symbol?
   (lambda (x)
-    (or (symbol? x) (list-of? symbol?))))
+    (or (symbol? x) ((list-of? symbol?) x))))
 
 ; Creates and applies arbitrary car/cdr combinations to a lst 
 (define compose-c...r
@@ -50,6 +60,22 @@
            (char=? (string-ref str (- (string-length str) 1)) #\r)
            (andmap (lambda (ch) (or (char=? ch #\a) (char=? ch #\d)))
                    (string->list (substring str 1 (- (string-length str) 1))))))))
+
+;Checks whether input is an improper list
+(define (improper-list? obj)
+  (let loop ([p obj])
+    (cond
+      [(null? p) #f]
+      [(pair? p) (loop (cdr p))]
+      [else #t])))
+
+; nf-lambda arguments can be a symbol or an improper list of symbols
+(define improper-list-of-symbols?
+  (lambda (x)
+    (cond [(symbol? x) #t]
+          [(pair? x) (and (symbol? (car x))
+                      (improper-list-of-symbols? (cdr x)))]
+          [else #f])))
 
 (define 1st car)
 (define 2nd cadr)
@@ -79,6 +105,9 @@
    (data literal?)]
   [lambda-exp
    (ids symbol-or-list-symbol?) ; arguments 
+   (bodies (list-of? expression?))]
+  [nf-lambda-exp
+   (ids improper-list-of-symbols?)
    (bodies (list-of? expression?))]
   [let-exp
    (type symbol?)
@@ -139,6 +168,10 @@
    (vars symbol-or-list-symbol?)
    (bodies (list-of? expression?))
    (env environment?)]
+  [nf-lambda-proc
+   (vars improper-list-of-symbols?)
+   (bodies (list-of? expression?))
+   (env environment?)]
   )
 
   
@@ -169,7 +202,7 @@
               (lit-exp (2nd datum))
               (error 'parse-exp "invalid quote expression my guy ~s" datum))]
      
-         ; LAMBDA-EXP
+         ; LAMBDA-EXP and NF-LAMBDA-EXP
          ; of form (lambda (args) (or '()) body)
          [(eqv? (car datum) 'lambda)
           (if (< (length datum) 3)
@@ -178,14 +211,20 @@
                     [bodies (cddr datum)])
                 (cond                    ;; Single symbol argument (lambda x body ...)
                   [(symbol? args)
-                   (lambda-exp args (map parse-exp bodies))]
+                   (nf-lambda-exp args (map parse-exp bodies))]
+
+                  ;; improper list of symbols for expanded nf-lambda
+                  [(improper-list-of-symbols? args)
+                   (if (unique-symbols? args)
+                       (nf-lambda-exp args (map parse-exp bodies))
+                       (error 'parse-exp "cannot have duplicate args in lambda exp: ~s" datum))]
                    
-                  ;; list of symbols for args
-                  [((list-of? symbol?) args)
+                  ;; list of symbols for args for normal lambda
+                  [(symbol-or-list-symbol? args)
                    (if (unique-symbols? args)
                        (lambda-exp args (map parse-exp bodies))
                        (error 'parse-exp "cannot have duplicate args in lambda exp: ~s" datum))]
-                    
+                  
                   [else (error 'parse-exp "invalid lambda expression: ~s" datum)])))]
          
          ; Normal LET-EXP, LET*-EXP, LETREC-EXP (let ([id val-expr] ...) body ...+)
@@ -509,7 +548,12 @@
       [lambda-exp (ids bodies)
                   ; returns a closure 'lambda-proc'
                   (lambda-proc ids bodies env)]
-      
+      [nf-lambda-exp (ids bodies)
+                  ; returns a closure 'lambda-proc'
+                  (nf-lambda-proc ids bodies env)]
+      [begin-exp (bodies)
+                 (last (map (lambda (b) (eval-exp env b)) bodies))]
+
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
                      [args (eval-rands env rands)])    ; then evaluate operands
@@ -544,10 +588,30 @@
                          (last (map (lambda (body) (eval-exp new-env body)) bodies)))
                      )
                    ]
+                     (last (map (lambda (body) (eval-exp new-env body)) bodies)))]
+      [nf-lambda-proc (vars bodies env)
+                      (let loop ([remaining-vars vars] [remaining-args args] [symbols '()] [vals '()])
+                        (cond
+                          [(symbol? remaining-vars)
+                           (let ([new-env (extended-env-record
+                                           (reverse (cons remaining-vars symbols))
+                                           (reverse (cons remaining-args vals))
+                                           env)])
+                             (last (map (lambda (body) (eval-exp new-env body)) bodies)))]
+                          [(null? remaining-vars)
+                           (let ([new-env (extended-env-record (reverse symbols) (reverse vals) env)])
+                             (last (map (lambda (body) (eval-exp new-env body)) bodies)))]
+                          [else
+                           (loop (cdr remaining-vars) (cdr remaining-args)
+                                 (cons (car remaining-vars) symbols)
+                                 (cons (car remaining-args) vals))]))
+                      ]
       ; You will add other cases
       [else (error 'apply-proc
                    "Attempt to apply bad procedure: ~s" 
                    proc-value)])))
+
+
 
 (define *prim-proc-names*
   '(+ - * / add1 sub1
