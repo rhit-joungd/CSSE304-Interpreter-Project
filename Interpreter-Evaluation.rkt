@@ -140,8 +140,7 @@
   [and-exp
    (exps (list-of? expression?))]
   [or-exp
-   (exps (list-of? expression?))]
-  )
+   (exps (list-of? expression?))])
 
 	
 ;--------------------------+
@@ -176,8 +175,7 @@
   [nf-lambda-proc
    (vars improper-list-of-symbols?)
    (bodies (list-of? expression?))
-   (env environment?)]
-  )
+   (env environment?)])
 
   
 ;-------------------+
@@ -293,9 +291,6 @@
                       (map parse-exp clause)))
                 (cdr datum)))]
 
-;(syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
-
-         
          ; CASE-EXP
          [(eqv? (car datum) 'case)
           (case-exp
@@ -303,11 +298,8 @@
            (map (lambda (clause)
                   (if (eqv? (car clause) 'else)
                       (cons 'else (map parse-exp (cdr clause)))
-                      (map parse-exp clause)))
+                      (cons (cadar clause) (map parse-exp (cdr clause)))))
                 (cddr datum)))] ;input the bodies
-
-;(parse-exp '(case 3 ([(list 3 4) 5] [(list 1 2) 7])))
-
          
          ; SET-EXP 
          [(eqv? (1st datum) 'set!)
@@ -338,6 +330,7 @@
                    (map parse-exp (cdr datum)))])]
 
       [else (error 'parse-exp "bad expression, not found in parser: ~s" datum)])))
+
 
 ;; UNPARSER
 (define unparse-exp
@@ -379,15 +372,15 @@
                        clauses))]
 
       [case-exp (key clauses)
-                (list 'case (unparse-exp key)
+                (cons 'case (cons (unparse-exp key)
                       (map
                        (lambda (clause)
                          (cons
                           (if (eqv? (car clause) 'else)
                               'else
-                              (unparse-exp (car clause)))
+                              (list 'quote (car clause)))
                           (map unparse-exp (cdr clause))))
-                       clauses))]
+                       clauses)))]
       
       [set!-exp (var val-exp)
                 (list 'set! var (unparse-exp val-exp))]
@@ -517,8 +510,23 @@
                            (syntax-expand (begin-exp (cdar clauses)))
                            (syntax-expand (cond-exp (cdr clauses))))])]
 
+      ; case --> ifs
+      [case-exp (key clauses)
+          (let ([key-var (var-exp 'case-key)])
+            (app-exp
+             (lambda-exp '(case-key)
+                         (list (cond
+                                 [(null? clauses)
+                                  (app-exp (lambda-exp '() '()) '())]
+                                 [(eq? (caar clauses) 'else)
+                                  (syntax-expand (begin-exp (cdar clauses)))]
+                                 [else (if-exp
+                                        (app-exp (var-exp 'member)
+                                                 (list key-var (lit-exp (caar clauses))));argument list
+                                        (syntax-expand (begin-exp (cdar clauses)));bodies
+                                        (syntax-expand (case-exp key-var (cdr clauses))))])));next clause
+             (list (syntax-expand key))))]
       
- 
       ; and --> ifs 
       [and-exp (exps)
                (cond [(null? exps) (lit-exp #t)]
@@ -599,7 +607,7 @@
                       (void)
                       (eval-exp env else-exp)))]
       
-     #| [let-exp (type vars var-exp bodies)
+     [let-exp (type vars var-exp bodies)
                ; example with a single of each
                ; 1. evaluate var-exp list
                ; 2. make a new environment
@@ -608,7 +616,7 @@
                                                    env))] ; parent env
                  ; 3. evaluate the bodies in new-env
                  (eval-exp new-env (car bodies))
-                 )]|#
+                 )]
       
       [lambda-exp (ids bodies)
                   ; returns a closure 'lambda-proc'
@@ -668,9 +676,7 @@
                           [else
                            (loop (cdr remaining-vars) (cdr remaining-args)
                                  (cons (car remaining-vars) symbols)
-                                 (cons (car remaining-args) vals))]))
-                      ]
-      ; You will add other cases
+                                 (cons (car remaining-args) vals))]))]
       [else (error 'apply-proc
                    "Attempt to apply bad procedure: ~s" 
                    proc-value)])))
@@ -678,9 +684,10 @@
 
 (define *prim-proc-names*
   '(+ - * / add1 sub1
-      not = >= car
+      not car = < > <= >= <=
       zero? null? eq? equal? list? pair? vector? number? symbol?
       procedure?
+      map apply member 
       cons list length vector vector-set! vector-ref
       list->vector vector->list))
 
@@ -703,6 +710,7 @@
       [(add1) (+ (1st args) 1)]
       [(sub1) (- (1st args) 1)]
       [(not) (not (car args))]
+      [(apply) (apply-proc (1st args) (2nd args))]
       
       ; predicates
       [(zero?) (zero? (car args))]
@@ -717,6 +725,9 @@
       [(procedure?) (proc-val? (1st args))]
       [(=) (apply = args)]
       [(>=) (apply >= args)]
+      [(<) (apply < args)]
+      [(>) (apply > args)]
+      [(<=) (apply <= args)]
       
       ; listing...
       [(list) args]
@@ -727,6 +738,8 @@
       [(vector) (apply vector args)]
       [(vector-set!) (vector-set! (1st args) (2nd args) (3rd args))]
       [(vector-ref) (vector-ref (1st args) (2nd args))]
+      [(map) (map (lambda (x) (apply-proc (1st args) (list x))) (2nd args))]
+      [(member) (member (1st args) (2nd args))]      
       
       ; keep going .. 
       [else
@@ -770,9 +783,8 @@
 ;(syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
 
 ;; CASE
-(parse-exp '(case 3 [(list 3 4) 5]))
-
-(unparse-exp '(case-exp (lit-exp 3) ((((var-exp list) (lit-exp 3) (lit-exp 4)) (lit-exp 5)))))
+(parse-exp '(case 3 ['(4 5 3) 6]))
+(unparse-exp '(case-exp (lit-exp 3) (((4 5 3) (lit-exp 6)))))
 
 ;; BEGIN
 ;(parse-exp '(begin))
