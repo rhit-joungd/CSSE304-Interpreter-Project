@@ -74,7 +74,7 @@
   (lambda (x)
     (cond [(symbol? x) #t]
           [(pair? x) (and (symbol? (car x))
-                      (improper-list-of-symbols? (cdr x)))]
+                          (improper-list-of-symbols? (cdr x)))]
           [else #f])))
 
 (define 1st car)
@@ -158,7 +158,7 @@
   [empty-env-record]
   [extended-env-record
    (syms (list-of? symbol?))
-   (vals (list-of? scheme-value?))
+   (vals vector?)
    (env environment?)])
 
 
@@ -343,8 +343,8 @@
                   (cons 'lambda
                         (cons ids (map unparse-exp bodies)))]
       [nf-lambda-exp (ids bodies) ;NOT COMPLETE just placeholder
-                  (cons 'lambda
-                        (cons ids (map unparse-exp bodies)))]
+                     (cons 'lambda
+                           (cons ids (map unparse-exp bodies)))]
       [let-exp (type ids vars bodies)
                (append
                 (list type
@@ -373,14 +373,14 @@
 
       [case-exp (key clauses)
                 (cons 'case (cons (unparse-exp key)
-                      (map
-                       (lambda (clause)
-                         (cons
-                          (if (eqv? (car clause) 'else)
-                              'else
-                              (list 'quote (car clause)))
-                          (map unparse-exp (cdr clause))))
-                       clauses)))]
+                                  (map
+                                   (lambda (clause)
+                                     (cons
+                                      (if (eqv? (car clause) 'else)
+                                          'else
+                                          (list 'quote (car clause)))
+                                      (map unparse-exp (cdr clause))))
+                                   clauses)))]
       
       [set!-exp (var val-exp)
                 (list 'set! var (unparse-exp val-exp))]
@@ -395,7 +395,7 @@
               (list 'or (map unparse-exp bodies))]
 
       [return-first-exp (bodies)
-                       (cons 'return-first (map unparse-exp bodies))]
+                        (cons 'return-first (map unparse-exp bodies))]
 
       [app-exp (rator rand)
                (cons (unparse-exp rator)
@@ -419,7 +419,7 @@
 
 (define extend-env
   (lambda (syms vals env)
-    (extended-env-record syms vals env)))
+    (extended-env-record syms (list->vector vals) env)))
 
 (define list-find-position
   (lambda (sym los)
@@ -439,7 +439,7 @@
       [extended-env-record (syms vals env)
                            (let ((pos (list-find-position sym syms)))
                              (if (number? pos)
-                                 (list-ref vals pos)
+                                 (vector-ref vals pos)
                                  (apply-env env sym)))])))
 
 ;-----------------------+
@@ -458,27 +458,31 @@
                   (lambda-exp ids (map syntax-expand bodies))]
 
       [nf-lambda-exp (ids bodies)
-                  ; returns a closure 'lambda-proc'
-                  (nf-lambda-exp ids (map syntax-expand bodies))]
+                     ; returns a closure 'lambda-proc'
+                     (nf-lambda-exp ids (map syntax-expand bodies))]
       
       [let-exp (type ids vals bodies)
-        (cond
-          [(eq? type 'let)
-           (app-exp
-             (lambda-exp ids (map syntax-expand bodies))
-             (map syntax-expand vals))]
+               (cond
+                 [(eq? type 'let)
+                  (app-exp
+                   (lambda-exp ids (map syntax-expand bodies))
+                   (map syntax-expand vals))]
              
-          [(eq? type 'let*)
-           (if (null? ids)
-               (syntax-expand (begin-exp bodies))
-               ;; Expand let* into a single let containing a nested let* for the rest
-               (syntax-expand
-                 (let-exp 'let
-                          (list (car ids))
-                          (list (car vals))
-                          (list (let-exp 'let* (cdr ids) (cdr vals) bodies)))))]
+                 [(eq? type 'let*)
+                  (if (null? ids)
+                      (syntax-expand (begin-exp bodies))
+                      ;; Expand let* into a single let containing a nested let* for the rest
+                      (syntax-expand
+                       (let-exp 'let
+                                (list (car ids))
+                                (list (car vals))
+                                (list (let-exp 'let* (cdr ids) (cdr vals) bodies)))))]
           
-          [else (error 'syntax-expand "unknown let type: ~s" type)])]
+                 [(eq? type 'letrec)
+                  (let-exp 'letrec ids
+                           (map syntax-expand vals)
+                           (map syntax-expand bodies))]
+                 [else (error 'syntax-expand "unknown let type: ~s" type)])]
       
       [namedlet-exp (name ids vals bodies) exp]
       
@@ -512,20 +516,20 @@
 
       ; case --> ifs
       [case-exp (key clauses)
-          (let ([key-var (var-exp 'case-key)])
-            (app-exp
-             (lambda-exp '(case-key)
-                         (list (cond
-                                 [(null? clauses)
-                                  (app-exp (lambda-exp '() '()) '())]
-                                 [(eq? (caar clauses) 'else)
-                                  (syntax-expand (begin-exp (cdar clauses)))]
-                                 [else (if-exp
-                                        (app-exp (var-exp 'member)
-                                                 (list key-var (lit-exp (caar clauses))));argument list
-                                        (syntax-expand (begin-exp (cdar clauses)));bodies
-                                        (syntax-expand (case-exp key-var (cdr clauses))))])));next clause
-             (list (syntax-expand key))))]
+                (let ([key-var (var-exp 'case-key)])
+                  (app-exp
+                   (lambda-exp '(case-key)
+                               (list (cond
+                                       [(null? clauses)
+                                        (app-exp (lambda-exp '() '()) '())]
+                                       [(eq? (caar clauses) 'else)
+                                        (syntax-expand (begin-exp (cdar clauses)))]
+                                       [else (if-exp
+                                              (app-exp (var-exp 'member)
+                                                       (list key-var (lit-exp (caar clauses))));argument list
+                                              (syntax-expand (begin-exp (cdar clauses)));bodies
+                                              (syntax-expand (case-exp key-var (cdr clauses))))])));next clause
+                   (list (syntax-expand key))))]
       
       ; and --> ifs 
       [and-exp (exps)
@@ -546,20 +550,20 @@
                                   (syntax-expand (or-exp (cdr exps))))])]
 
       [return-first-exp (exps)
-        (cond
-          ;; want to return (void)
-          [(null? exps) 
-           (app-exp (lambda-exp '() '()) '())]
+                        (cond
+                          ;; want to return (void)
+                          [(null? exps) 
+                           (app-exp (lambda-exp '() '()) '())]
            
-          [(null? (cdr exps)) 
-           (syntax-expand (car exps))]
+                          [(null? (cdr exps)) 
+                           (syntax-expand (car exps))]
           
-          [else
-           (syntax-expand
-             (let-exp 'let
-                      (list 'temp-val)
-                      (list (car exps))
-                      (append (cdr exps) (list (var-exp 'temp-val)))) )])]
+                          [else
+                           (syntax-expand
+                            (let-exp 'let
+                                     (list 'temp-val)
+                                     (list (car exps))
+                                     (append (cdr exps) (list (var-exp 'temp-val)))) )])]
       
       )))
 
@@ -607,23 +611,40 @@
                       (void)
                       (eval-exp env else-exp)))]
       
-     [let-exp (type vars var-exp bodies)
+      [let-exp (type vars var-exp bodies)
+               ; 1. OG Let
                ; example with a single of each
                ; 1. evaluate var-exp list
                ; 2. make a new environment
-               (let [(new-env (extended-env-record (list (car vars)) ; list of symbols
-                                                   (list (eval-exp env (car var-exp))) ; list of evaluated exps
-                                                   env))] ; parent env
-                 ; 3. evaluate the bodies in new-env
-                 (eval-exp new-env (car bodies))
-                 )]
+               (cond [(eq? type 'let)
+                      (let* ([evaluated-vals (eval-rands env var-exp)]
+                             [new-env (extend-env vars evaluated-vals env)]) 
+                        (last (map (lambda (b) (eval-exp new-env b)) bodies)))]
+
+                     ; 2. LETREC
+                     [(eq? type 'letrec)
+                      (let* ([n (length vars)]
+                             [holder-vec (make-vector n (void))]
+                             [new-env (extended-env-record vars holder-vec env)])
+                        ; for each value, evaluate and set retroactively
+                        (let loop ([i 0]
+                                   [remaining-vals var-exp])
+                          (when (< i n)
+                            (vector-set! holder-vec i (eval-exp new-env (car remaining-vals)))
+                            (loop (add1 i) (cdr remaining-vals))))
+
+                        ; now evaluate the bodies in new env (and return the last value
+                        (last (map (lambda (b) (eval-exp new-env b)) bodies)))]
+                     [else (error 'eval-exp "unknown let type: ~s" type)])
+               ]
+      
       
       [lambda-exp (ids bodies)
                   ; returns a closure 'lambda-proc'
                   (lambda-proc ids bodies env)]
       [nf-lambda-exp (ids bodies)
-                  ; returns a closure 'lambda-proc'
-                  (nf-lambda-proc ids bodies env)]
+                     ; returns a closure 'lambda-proc'
+                     (nf-lambda-proc ids bodies env)]
       [begin-exp (bodies)
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
 
@@ -652,7 +673,7 @@
                    ; 1. evaluate operators (vars?)
                    ; 2. create new environment
                    ; 3. evaluate body within the new environment
-                   (let ([new-env (extended-env-record vars ; 2. list of symbols
+                   (let ([new-env (extend-env vars ; 2. list of symbols
                                                        args ; list of evaluated exps
                                                        env)])   
                      ; 3.
@@ -665,7 +686,7 @@
                       (let loop ([remaining-vars vars] [remaining-args args] [symbols '()] [vals '()])
                         (cond
                           [(symbol? remaining-vars)
-                           (let ([new-env (extended-env-record
+                           (let ([new-env (extend-env
                                            (reverse (cons remaining-vars symbols))
                                            (reverse (cons remaining-args vals))
                                            env)])
@@ -685,7 +706,7 @@
 (define *prim-proc-names*
   '(+ - * / add1 sub1
       not car = < > <= >= <=
-      zero? null? eq? equal? list? pair? vector? number? symbol?
+      zero? null? eq? eqv? equal? list? pair? vector? number? symbol?
       procedure?
       map apply member 
       cons list length vector vector-set! vector-ref
@@ -716,6 +737,7 @@
       [(zero?) (zero? (car args))]
       [(null?) (null? (car args))]
       [(eq?) (eq? (1st args) (2nd args))]
+      [(eqv?) (eqv? (1st args) (2nd args))]
       [(equal?) (equal? (1st args) (2nd args))]
       [(symbol?) (symbol? (1st args))]
       [(list?) (list? (1st args))]
