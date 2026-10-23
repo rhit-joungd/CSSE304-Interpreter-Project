@@ -260,7 +260,7 @@
             [(not (andmap pair? (3rd datum)))
              (error 'parse-exp "let bindings need to be pairs: ~s" datum)]
             [else (namedlet-exp
-                   (2nd datum)1
+                   (2nd datum)
                    (map 1st (3rd datum))
                    (map (lambda (b) (parse-exp (2nd b))) (3rd datum))
                    (map parse-exp (cdddr datum)))])]
@@ -484,11 +484,24 @@
                            (map syntax-expand bodies))]
                  [else (error 'syntax-expand "unknown let type: ~s" type)])]
       
-      [namedlet-exp (name ids vals bodies) exp]
+      [namedlet-exp (name ids vals bodies)
+                    (syntax-expand
+                     (let-exp 'letrec
+                              (list name)
+                              (list (lambda-exp ids bodies))
+                              (list (app-exp (var-exp name) vals))))]
       
-      [if-exp (test-exp then-exp else-exp) exp]
+      [if-exp (test-exp then-exp else-exp)
+        (if (null? else-exp)
+            (if-exp (syntax-expand test-exp)
+                    (syntax-expand then-exp)
+                    '())
+            (if-exp (syntax-expand test-exp)
+                    (syntax-expand then-exp)
+                    (syntax-expand else-exp)))]
       
-      [set!-exp (var var-exp) exp]
+      [set!-exp (var val-exp)
+          (set!-exp var (syntax-expand val-exp))]
       
       [app-exp (rator rands)
                (app-exp (syntax-expand rator)
@@ -705,10 +718,10 @@
 
 (define *prim-proc-names*
   '(+ - * / add1 sub1
-      not car = < > <= >= <=
+      not car = < > <= >= <= quotient
       zero? null? eq? eqv? equal? list? pair? vector? number? symbol?
       procedure?
-      map apply member 
+      map apply member append list-tail
       cons list length vector vector-set! vector-ref
       list->vector vector->list))
 
@@ -732,6 +745,7 @@
       [(sub1) (- (1st args) 1)]
       [(not) (not (car args))]
       [(apply) (apply-proc (1st args) (2nd args))]
+      [(quotient) (quotient (1st args) (2nd args))]
       
       ; predicates
       [(zero?) (zero? (car args))]
@@ -761,7 +775,9 @@
       [(vector-set!) (vector-set! (1st args) (2nd args) (3rd args))]
       [(vector-ref) (vector-ref (1st args) (2nd args))]
       [(map) (map (lambda (x) (apply-proc (1st args) (list x))) (2nd args))]
-      [(member) (member (1st args) (2nd args))]      
+      [(member) (member (1st args) (2nd args))]
+      [(append) (apply append args)]
+      [(list-tail) (list-tail (1st args) (2nd args))]
       
       ; keep going .. 
       [else

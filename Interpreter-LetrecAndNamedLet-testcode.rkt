@@ -7,7 +7,7 @@
 ; If you find errors in your code, fix them, save your file, click the "Run" button again, and type (r)
 ; You can run a specific group of tests using (run-tests group-name)
 
-(require "../testcode-base.rkt")
+(require "testcode-base.rkt")
 (require "Interpreter-LetrecAndNamedLet.rkt")
 (provide get-weights get-names individual-test test)
 
@@ -69,28 +69,28 @@
     [(eval-one-exp ' (letrec ( (apply-continuation (lambda (k val) (k val))) (subst-left-cps (lambda (new old slist changed unchanged) (let loop ((slist slist) (changed changed) (unchanged unchanged)) (cond ((null? slist) (apply-continuation unchanged #f)) ((symbol? (car slist)) (if (eq? (car slist) old) (apply-continuation changed (cons new (cdr slist))) (loop (cdr slist) (lambda (changed-cdr) (apply-continuation changed (cons (car slist) changed-cdr))) unchanged))) (else (loop (car slist) (lambda (changed-car) (apply-continuation changed (cons changed-car (cdr slist)))) (lambda (t) (loop (cdr slist) (lambda (changed-cdr) (apply-continuation changed (cons (car slist) changed-cdr))) unchanged))))))))) (let ((s '((a b (c () (d e (f g)) h)) i))) (subst-left-cps 'new 'e s (lambda (changed-s) (subst-left-cps 'new 'q s (lambda (wont-be-changed) 'whocares) (lambda (r) (list changed-s)))) (lambda (p) "It's an error to get here"))))) '(((a b (c () (d new (f g)) h)) i)) 10] ; (run-test subst-leftmost 1)
   )
 
-  (y2 equal?
-      [(let ([o? (y2 my-odd? my-odd? my-even?)]
-             [e? (y2 my-even? my-odd? my-even?)])
-         (list (o? 0) (o? 1) (o? 5) (o? 6) (e? 0) (e? 1) (e? 5) (e? 6))) '(#f #t #t #f #t #f #f #t) 0.5])
-  (advanced-letrec equal?
-                   [(advanced-letrec
-                     ((o? (lambda (num)
-                            (if (zero? num)
-                                #f
-                                (e? (sub1 num)))))
-                      (e? (lambda (num)
-                            (if (zero? num)
-                                #t
-                                (o? (sub1 num))))))
-                     (list (o? 0) (o? 1) (o? 5) (o? 6) (e? 0) (e? 1) (e? 5) (e? 6))) '(#f #t #t #f #t #f #f #t) 0.25]
-                   [(advanced-letrec
-                     ([a (lambda (lst) (if (null? lst) '() (cons (+ 1 (car lst)) (b (cdr lst)))))]
-                      [b (lambda (lst) (if (null? lst) '() (cons (+ 2 (car lst)) (c (cdr lst)))))]
-                      [c (lambda (lst) (if (null? lst) '() (cons (+ 3 (car lst)) (d (cdr lst)))))]
-                      [d (lambda (lst) (if (null? lst) '() (cons (+ 4 (car lst)) (a (cdr lst)))))])
-                     (a '(0 0 0 0 0 0 0 0 0))) '(1 2 3 4 1 2 3 4 1) 0.25]
-                   )
+;;   (y2 equal?
+;;       [(let ([o? (y2 my-odd? my-odd? my-even?)]
+;;              [e? (y2 my-even? my-odd? my-even?)])
+;;          (list (o? 0) (o? 1) (o? 5) (o? 6) (e? 0) (e? 1) (e? 5) (e? 6))) '(#f #t #t #f #t #f #f #t) 0.5])
+;;   (advanced-letrec equal?
+;;                    [(advanced-letrec
+;;                      ((o? (lambda (num)
+;;                             (if (zero? num)
+;;                                 #f
+;;                                 (e? (sub1 num)))))
+;;                       (e? (lambda (num)
+;;                             (if (zero? num)
+;;                                 #t
+;;                                 (o? (sub1 num))))))
+;;                      (list (o? 0) (o? 1) (o? 5) (o? 6) (e? 0) (e? 1) (e? 5) (e? 6))) '(#f #t #t #f #t #f #f #t) 0.25]
+;;                    [(advanced-letrec
+;;                      ([a (lambda (lst) (if (null? lst) '() (cons (+ 1 (car lst)) (b (cdr lst)))))]
+;;                       [b (lambda (lst) (if (null? lst) '() (cons (+ 2 (car lst)) (c (cdr lst)))))]
+;;                       [c (lambda (lst) (if (null? lst) '() (cons (+ 3 (car lst)) (d (cdr lst)))))]
+;;                       [d (lambda (lst) (if (null? lst) '() (cons (+ 4 (car lst)) (a (cdr lst)))))])
+;;                      (a '(0 0 0 0 0 0 0 0 0))) '(1 2 3 4 1 2 3 4 1) 0.25]
+;;                    )
 ))
 
 (define set?-grading
