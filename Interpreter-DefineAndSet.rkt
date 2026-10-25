@@ -1,7 +1,7 @@
 #lang racket
 
 (require "chez-init.rkt")
-(provide eval-one-exp)
+(provide eval-one-exp reset-global-env)
 
 ;-------------------+
 ;                   |
@@ -435,10 +435,22 @@
 ;                   |
 ;-------------------+
 
+; Reference datatype for set!
+(define make-ref cons)
+(define ref->vector car)
+(define ref->index cdr)
+
+(define deref
+  (lambda (ref)
+    (vector-ref (ref->vector ref) (ref->index ref))))
+
+(define set-ref!
+  (lambda (ref val)
+    (vector-set! (ref->vector ref) (ref->index ref) val)))
+
 
 ; Environment definitions for CSSE 304 Scheme interpreter.  
 ; Based on EoPL sections 2.2 and 2.3
-
 (define empty-env
   (lambda ()
     (empty-env-record)))
@@ -453,20 +465,24 @@
       (cond [(null? los) #f]
             [(eq? sym (car los)) pos]
             [else (loop (cdr los) (add1 pos))]))))
-	    
+
 (define apply-env
+  (lambda (env sym)
+    (deref (apply-env-ref env sym))))
+	    
+(define apply-env-ref
   (lambda (env sym) 
     (cases environment env 
       [empty-env-record ()
                         ; applying an arbitrary c..r proc
                         (if (c...r-proc? sym)
-                            (prim-proc sym) ; On-the-fly construction of primitive procedure!
+                            (prim-proc sym)
                             (error 'env "variable ~s not found." sym))]
       [extended-env-record (syms vals env)
                            (let ((pos (list-find-position sym syms)))
                              (if (number? pos)
-                                 (vector-ref vals pos)
-                                 (apply-env env sym)))])))
+                                 (make-ref vals pos)
+                                 (apply-env-ref env sym)))])))
 
 ;-----------------------+
 ;                       |
@@ -633,12 +649,8 @@
     
     ; TODO: ADD DEFINE CONTRACT TO ENSURE THAT THE INPUTS
     ;       ARE VALID
-    (cases expression form
-        [define-exp (name exp)
-                      (set! global-env (extend-env (list name) (list (eval-exp global-env exp)) global-env))]
-        [else (eval-exp global-env form)])
-        
-   
+    (eval-exp global-env form)
+      
     ))
 
 ; eval-exp is the main component of the interpreter
@@ -704,6 +716,10 @@
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
                      [args (eval-rands env rands)])    ; then evaluate operands
                  (apply-proc proc-value args))]    ; evoke the closure...
+
+      [set!-exp (id val-exp)
+                (set-ref! (apply-env-ref env id)
+                          (eval-exp env val-exp))]
       
       [else (error 'eval-exp "Bad abstract syntax: ~a" exp)])))
 
@@ -763,7 +779,6 @@
       procedure?
       map apply member append list-tail
       cons list length vector vector-set! vector-ref
-      reset-global-env
       list->vector vector->list))
 
 (define init-env         ; for now, our initial global environment only contains 
@@ -775,12 +790,15 @@
 
 (define global-env init-env)
 
+(define reset-global-env
+  (lambda ()
+    (set! global-env init-env)))
+
 ; Usually an interpreter must define each 
 ; built-in procedure individually.  We are "cheating" a little bit.
 (define apply-prim-proc
   (lambda (prim-proc args)
     (case prim-proc
-      [(reset-global-env) (set! global-env init-env)]
       [(+) (apply + args)]
       [(-) (apply - args)]
       [(*) (apply * args)]
@@ -861,7 +879,7 @@
 ;;DEFINE-EXP
 ;(parse-exp '(define a (lambda (x) x)))
 ;(unparse-exp (parse-exp '(define a (lambda (x) x))))
-(eval-one-exp '(begin (define a 5) (+ a 3)))
+;(eval-one-exp '(begin (define a 5) (+ a 3)))
 
 ;; LET
 ;(syntax-expand (parse-exp '(let () 3 4 5)))
