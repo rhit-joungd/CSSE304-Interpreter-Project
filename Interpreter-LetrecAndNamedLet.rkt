@@ -15,6 +15,15 @@
 (define quasiquote-enabled?
   (lambda () (error "nyi"))) ; make this return 'yes if you're trying quasiquote
 
+(provide y2)
+(define y2 (lambda args (error "y2 not implemented")))
+
+(provide advanced-letrec)
+(define advanced-letrec (lambda args (error "advanced-letrec not implemented")))
+
+(provide o)
+(define o (lambda args (error "o not implemented")))
+
 ; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
   (lambda (lst)
@@ -140,7 +149,10 @@
   [and-exp
    (exps (list-of? expression?))]
   [or-exp
-   (exps (list-of? expression?))])
+   (exps (list-of? expression?))]
+  [define-exp
+    (name symbol?)
+    (exp expression?)])
 
 	
 ;--------------------------+
@@ -323,6 +335,10 @@
          ; RETURN-FIRST-EXP
          [(eqv? (1st datum) 'return-first)
           (return-first-exp (map parse-exp (cdr datum)))]
+
+         ;DEFINE-EXP
+         [(eqv? (1st datum) 'define)
+          (define-exp (2nd datum) (parse-exp (3rd datum)))]
          
          ; Procedure application (app-exp)
          [else
@@ -400,6 +416,9 @@
       [app-exp (rator rand)
                (cons (unparse-exp rator)
                      (map unparse-exp rand))]
+
+      [define-exp (name exp)
+        (list 'define name (unparse-exp exp))]
       )))
 
 
@@ -870,7 +889,8 @@
 ;(eval-one-exp ''#(a b c)); #(a b c) 1] ; (run-test literals 6)
 ;(eval-one-exp ''#5(a)) ;#5(a) 1] ; (run-test literals 7)
 
-
+;;DEFINE-EXP
+(parse-exp '(define a 4))
 
 
 
