@@ -9,6 +9,7 @@
 ;                   |
 ;-------------------+
 
+
 (provide add-macro-interpreter)
 (define add-macro-interpreter (lambda x (error "nyi")))
 (provide quasiquote-enabled?)
@@ -16,13 +17,19 @@
   (lambda () (error "nyi"))) ; make this return 'yes if you're trying quasiquote
 
 (provide y2)
-(define y2 (lambda args (error "y2 not implemented")))
+(define y2
+  (lambda (which f1 f2)
+    ('nyi)))
 
 (provide advanced-letrec)
-(define advanced-letrec (lambda args (error "advanced-letrec not implemented")))
+(define-syntax (advanced-letrec stx)
+  (syntax-case stx ()
+    [(advanced-letrec ((fun-name fun-body)...) letrec-body)
+     #'(error "nyi")]))
 
 (provide o)
 (define o (lambda args (error "o not implemented")))
+
 
 ; lambdas need to have unique symbols in their arguments
 (define unique-symbols?
@@ -470,7 +477,7 @@
 (define syntax-expand
   (lambda (exp)
     (cases expression exp
-      [var-exp (id) exp] ;; do nothing
+      [var-exp (id) exp]   ;; do nothing
       [lit-exp (data) exp] ;; do nothing
       
       [lambda-exp (ids bodies)
@@ -596,6 +603,9 @@
                                      (list 'temp-val)
                                      (list (car exps))
                                      (append (cdr exps) (list (var-exp 'temp-val)))) )])]
+
+      [define-exp (name exp)
+        (define-exp name (syntax-expand exp))]
       
       )))
 
@@ -622,8 +632,9 @@
     ; later we may add things that are not expressions.
     
     ; TODO: ADD DEFINE CONTRACT TO ENSURE THAT THE INPUTS
-    ;       ARE VALID 
-    (eval-exp init-env form)))
+    ;       ARE VALID
+   
+    (eval-exp global-env form)))
 
 ; eval-exp is the main component of the interpreter
 
@@ -679,6 +690,10 @@
                      (nf-lambda-proc ids bodies env)]
       [begin-exp (bodies)
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
+
+      [define-exp (name exp)
+        ; create new extend record 
+        (set! global-env (extend-env (list name) (list (eval-exp env exp)) env))]
 
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
@@ -742,6 +757,7 @@
       procedure?
       map apply member append list-tail
       cons list length vector vector-set! vector-ref
+      reset-global-env
       list->vector vector->list))
 
 (define init-env         ; for now, our initial global environment only contains 
@@ -751,11 +767,14 @@
         *prim-proc-names*)
    (empty-env)))
 
+(define global-env init-env)
+
 ; Usually an interpreter must define each 
 ; built-in procedure individually.  We are "cheating" a little bit.
 (define apply-prim-proc
   (lambda (prim-proc args)
     (case prim-proc
+      [(reset-global-env) (set! global-env init-env)]
       [(+) (apply + args)]
       [(-) (apply - args)]
       [(*) (apply * args)]
@@ -833,6 +852,10 @@
 
 ;; TESTING
 
+;;DEFINE-EXP
+(parse-exp '(define a (lambda (x) x)))
+(unparse-exp (parse-exp '(define a (lambda (x) x))))
+
 ;; LET
 ;(syntax-expand (parse-exp '(let () 3 4 5)))
 
@@ -840,8 +863,8 @@
 ;(syntax-expand (parse-exp '(cond [(= 1 3) (+ 1 3)] [(= 7 7) (+ 7 7)] [else (+ 1 9)])))
 
 ;; CASE
-(parse-exp '(case 3 ['(4 5 3) 6]))
-(unparse-exp '(case-exp (lit-exp 3) (((4 5 3) (lit-exp 6)))))
+;(parse-exp '(case 3 ['(4 5 3) 6]))
+;(unparse-exp '(case-exp (lit-exp 3) (((4 5 3) (lit-exp 6)))))
 
 ;; BEGIN
 ;(parse-exp '(begin))
@@ -889,8 +912,6 @@
 ;(eval-one-exp ''#(a b c)); #(a b c) 1] ; (run-test literals 6)
 ;(eval-one-exp ''#5(a)) ;#5(a) 1] ; (run-test literals 7)
 
-;;DEFINE-EXP
-(parse-exp '(define a 4))
 
 
 
