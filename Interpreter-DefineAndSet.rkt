@@ -633,8 +633,13 @@
     
     ; TODO: ADD DEFINE CONTRACT TO ENSURE THAT THE INPUTS
     ;       ARE VALID
+    (cases expression form
+        [define-exp (name exp)
+                      (set! global-env (extend-env (list name) (list (eval-exp global-env exp)) global-env))]
+        [else (eval-exp global-env form)])
+        
    
-    (eval-exp global-env form)))
+    ))
 
 ; eval-exp is the main component of the interpreter
 
@@ -692,13 +697,14 @@
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
 
       [define-exp (name exp)
-        ; create new extend record 
-        (set! global-env (extend-env (list name) (list (eval-exp env exp)) env))]
+        ; create new extend record and update global-env
+        (set! global-env (extend-env (list name) (list (eval-exp env exp)) global-env))]
 
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
                      [args (eval-rands env rands)])    ; then evaluate operands
-                 (apply-proc proc-value args))]    ; evoke the closure... 
+                 (apply-proc proc-value args))]    ; evoke the closure...
+      
       [else (error 'eval-exp "Bad abstract syntax: ~a" exp)])))
 
 ; evaluate the list of operands, putting results into a list
@@ -853,8 +859,9 @@
 ;; TESTING
 
 ;;DEFINE-EXP
-(parse-exp '(define a (lambda (x) x)))
-(unparse-exp (parse-exp '(define a (lambda (x) x))))
+;(parse-exp '(define a (lambda (x) x)))
+;(unparse-exp (parse-exp '(define a (lambda (x) x))))
+(eval-one-exp '(begin (define a 5) (+ a 3)))
 
 ;; LET
 ;(syntax-expand (parse-exp '(let () 3 4 5)))

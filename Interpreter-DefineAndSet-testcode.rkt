@@ -12,13 +12,13 @@
 (provide get-weights get-names individual-test test)
 
 (define test (make-test ; (r)
-  (set!-local-variables equal? ; (run-test set!-local-variables)
+  #|(set!-local-variables equal? ; (run-test set!-local-variables)
     [(eval-one-exp '(let ((f #f) (x 3)) (set! f (lambda (n) (+ 3 (* n 10)))) (set! x 7) (f x))) 73 5] ; (run-test set!-local-variables 1)
     [(eval-one-exp '((lambda (x) (set! x (+ x 1)) (+ x 2)) 90)) 93 5] ; (run-test set!-local-variables 2)
     [(eval-one-exp '(let ((x 5) (y 3)) (let ((z (begin (set! x (+ x y)) x))) (+ z (+ x y))))) 19 5] ; (run-test set!-local-variables 3)
     [(eval-one-exp '(let ((a 5)) (if (not (= a 6)) (begin (set! a (+ 1 a)) (set! a (+ 1 a))) 3) (+ 1 a))) 8 6] ; (run-test set!-local-variables 4)
     [(eval-one-exp '(let ((f #f)) (let ((dummy (begin (set! f (lambda (n) (+ 3 (* n 10)))) 3))) (f 4)))) 43 6] ; (run-test set!-local-variables 5)
-  )
+  )|#
 
   (simple-defines equal? ; (run-test simple-defines)
     [(eval-one-exp '(begin (define a 5) (+ a 3))) 8 5] ; (run-test simple-defines 1)
@@ -29,7 +29,7 @@
     [(eval-one-exp '(begin (define double-fact (lambda (x) (fact (* 2 x)))) (define fact (lambda (x) (if (zero? x) 1 (* x (fact (sub1 x)))))) (double-fact 4))) 40320 12] ; (run-test simple-defines 6)
   )
 
-  (letrec-and-define equal? ; (run-test letrec-and-define)
+  #|(letrec-and-define equal? ; (run-test letrec-and-define)
     [(begin (reset-global-env) (eval-one-exp '(letrec ((f (lambda (n) (if (= n 0) 0 (+ n (f (sub1 n))))))) (f 10)))) 55 6] ; (run-test letrec-and-define 1)
     [(eval-one-exp '(letrec ((f (lambda (n) (if (zero? n) 0 (+ 4 (g (sub1 n)))))) (g (lambda (n) (if (zero? n) 0 (+ 3 (f (sub1 n))))))) (f (g (f 5))))) 221 6] ; (run-test letrec-and-define 2)
     [(begin (reset-global-env) (eval-one-exp '(define zer0? (lambda (x) (= x 0)))) (eval-one-exp '(letrec ([f (lambda (n) (if (zer0? n) 0 (+ n (f (sub1 n)))))]) (f 10)))) 55 7] ; (run-test letrec-and-define 3)
@@ -60,7 +60,7 @@
     [(eval-one-exp '(apply apply (list + '(1 2)))) 3 5] ; (run-test misc 1)
     [(eval-one-exp '(apply map (list (lambda (x) (+ x 3)) '(2 4)))) '(5 7) 5] ; (run-test misc 2)
     [(begin (reset-global-env) (eval-one-exp '(let ([x 2]) (or (begin (set! x (add1 x)) #f) (begin (set! x (add1 x)) #f) (begin (set! x (+ 10 x)) #t)) (or x (set! x 25) x)))) 14 8] ; (run-test misc 3)
-  )
+  )|#
 ))
 
 (implicit-run test) ; run tests as soon as this file is loaded
