@@ -648,7 +648,8 @@
     (cases expression form
       [define-exp (name exp)
         (set! global-env (extend-env (list name) (list (eval-exp global-env exp)) global-env))]
-      
+      [begin-exp (bodies)
+                 (last (map (lambda (b) (top-level-exp global-env b)) bodies))]
       [else (eval-exp global-env form)])))
 
 ; eval-exp is the main component of the interpreter
@@ -706,9 +707,9 @@
       [begin-exp (bodies)
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
 
-      [define-exp (name exp)
-        ; create new extend record and update global-env
-        (set! global-env (extend-env (list name) (list (eval-exp env exp)) global-env))]
+;;       [define-exp (name exp)
+;;         ; create new extend record and update global-env
+;;         (set! global-env (extend-env (list name) (list (eval-exp env exp)) global-env))]
 
       [app-exp (rator rands)
                (let ([proc-value (eval-exp env rator)] ; when evaluating start operator
