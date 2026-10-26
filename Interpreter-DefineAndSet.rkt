@@ -174,7 +174,9 @@
   (lambda (x) #t))
   
 (define-datatype environment environment?
-  [empty-env-record]
+  [empty-env-record
+   (global-hashtable hash?)
+   ]
   [extended-env-record
    (syms (list-of? symbol?))
    (vals vector?)
@@ -453,7 +455,7 @@
 ; Based on EoPL sections 2.2 and 2.3
 (define empty-env
   (lambda ()
-    (empty-env-record)))
+    (empty-env-record (make-hash))))
 
 (define extend-env
   (lambda (syms vals env)
@@ -793,12 +795,12 @@
       cons list length vector vector-set! vector-ref
       list->vector vector->list))
 
-(define init-env         ; for now, our initial global environment only contains 
-  (extend-env            ; procedure names.  Recall that an environment associates
-   *prim-proc-names*     ;  a value (not an expression) with an identifier.
-   (map prim-proc      
-        *prim-proc-names*)
-   (empty-env)))
+(define init-env        
+  (for-each
+   (lambda (name proc)
+     (hash-set! (empty-env) name (make-ref (vector proc) 0)))
+   *prim-proc-names*
+   (map prim-proc *prim-proc-names*)))
 
 (define global-env init-env)
 
