@@ -474,6 +474,7 @@
   (lambda (env sym) 
     (cases environment env 
       [empty-env-record ()
+                        ; hashtable lookup 
                         ; applying an arbitrary c..r proc
                         (if (c...r-proc? sym)
                             (prim-proc sym)
@@ -641,6 +642,17 @@
 ;                   |
 ;-------------------+
 
+; could just assume that define is going at be at the top level
+; with begin
+;   walk through and regular parse won't touch
+;   nothing that is parsed can have a begin / define
+; not looking from when you were created, but after working your way up the tree, then checking seperate global env
+
+
+
+; mutable global env ; not extend which doesn't change the original -- hashtable drracket, applyenv update global variable inital as hash table
+;    inserts elements into hash table ~ global env; singular apply-env, when fails look up in the hash table 
+
 ; top-level-eval evaluates a form in the global environment
 ; Called at the start
 (define top-level-eval
@@ -649,8 +661,9 @@
       [define-exp (name exp)
         (set! global-env (extend-env (list name) (list (eval-exp global-env exp)) global-env))]
       [begin-exp (bodies)
-                 (last (map (lambda (b) (top-level-exp global-env b)) bodies))]
-      [else (eval-exp global-env form)])))
+                 (last (map (lambda (b)
+                              (top-level-eval (syntax-expand b))) bodies))]
+      [else (eval-exp global-env (syntax-expand form))])))
 
 ; eval-exp is the main component of the interpreter
 
@@ -863,22 +876,35 @@
   (lambda ()
     (display "--> ")
     ;; notice that we don't save changes to the environment...
-    (let ([answer (top-level-eval (syntax-expand (parse-exp (read))))])
+    (let ([answer (top-level-eval (parse-exp (read)))])
       ;; TODO: are there answers that should display differently?
       ;; go through answer and replace lambda-exp with <interpreter-procedure>
       (pretty-print (replace-lambdas answer)) (newline)
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
-  (lambda (x) (replace-lambdas (top-level-eval (syntax-expand (parse-exp x))))))
+  (lambda (x) (replace-lambdas (top-level-eval (parse-exp x)))))
 
 
 ;; TESTING
 
 ;;DEFINE-EXP
-;(parse-exp '(define a (lambda (x) x)))
+(parse-exp '(begin
+              (define double-fact (lambda (x) (fact (* 2 x))))
+              (define fact (lambda (x)
+                             (if (zero? x)
+                                 1
+                                 (* x (fact (sub1 x))))))
+              (double-fact 4)))
 ;(unparse-exp (parse-exp '(define a (lambda (x) x))))
-;(eval-one-exp '(begin (define a 5) (+ a 3)))
+;;(eval-one-exp '(define double-fact (lambda (x) (fact (* 2 x)))))
+;;(eval-one-exp '(begin (define double-fact (lambda (x) (fact (* 2 x)))) (define fact (lambda (x) (if (zero? x) 1 (* x (fact (sub1 x)))))) (double-fact 4)))
+
+(eval-one-exp '(define rotate-linear
+                 (letrec ((reverse (lambda (lyst revlist) (if (null? lyst) revlist (reverse (cdr lyst) (cons (car lyst) revlist))))))
+                   (lambda (los) (let loop ((los los) (sofar '())) (cond ((null? los) los) ((null? (cdr los)) (cons (car los) (reverse sofar '()))) (else (loop (cdr los) (cons (car los) sofar))))))
+                   )))
+; (eval-one-exp '(rotate-linear '(1 2 3 4 5 6 7 8)))
 
 ;; LET
 ;(syntax-expand (parse-exp '(let () 3 4 5)))
