@@ -20,7 +20,7 @@
     [(eval-one-exp '(let ((f #f)) (let ((dummy (begin (set! f (lambda (n) (+ 3 (* n 10)))) 3))) (f 4)))) 43 6] ; (run-test set!-local-variables 5)
   )
 
- #| (simple-defines equal? ; (run-test simple-defines)
+  (simple-defines equal? ; (run-test simple-defines)
     [(eval-one-exp '(begin (define a 5) (+ a 3))) 8 5] ; (run-test simple-defines 1)
     [(eval-one-exp '(begin (define c 5) (define d (+ c 2)) (+ d (add1 c)))) 13 6] ; (run-test simple-defines 2)
     [(eval-one-exp '(begin (define e 5) (let ((f (+ e 2))) (set! e (+ e f)) (set! f (* 2 f)) (list e f)))) '(12 14) 6] ; (run-test simple-defines 3)
@@ -43,7 +43,7 @@
     [(begin (reset-global-env) (eval-one-exp '(define f1 (lambda (x) (f2 (+ x 1))))) (eval-one-exp '(define f2 (lambda (x) (* x x)))) (eval-one-exp '(f1 3))) 16 7] ; (run-test named-let-and-define 5)
     [(begin (reset-global-env) (eval-one-exp '(define ns-list-recur (lambda (seed item-proc list-proc) (letrec ((helper (lambda (ls) (if (null? ls) seed (let ((c (car ls))) (if (or (pair? c) (null? c)) (list-proc (helper c) (helper (cdr ls))) (item-proc c (helper (cdr ls))))))))) helper)))) (eval-one-exp '(define append (lambda (s t) (if (null? s) t (cons (car s) (append (cdr s) t)))))) (eval-one-exp '(define reverse* (let ((snoc (lambda (x y) (append y (list x))))) (ns-list-recur '() snoc snoc)))) (eval-one-exp '(reverse* '(1 (2 3) (((4))) () 5)))) '(5 () (((4))) (3 2) 1) 10] ; (run-test named-let-and-define 6)
   )
-|#
+
   (set!-global-variables equal? ; (run-test set!-global-variables)
     [(begin (reset-global-env) (eval-one-exp '(define a 3)) (eval-one-exp '(set! a 7)) (eval-one-exp 'a)) 7 7] ; (run-test set!-global-variables 1)
     [(begin (reset-global-env) (eval-one-exp '(define a 3)) (eval-one-exp '(define f '())) (eval-one-exp '(set! f (lambda (x) (+ x 1)))) (eval-one-exp '(f a))) 4 7] ; (run-test set!-global-variables 2)

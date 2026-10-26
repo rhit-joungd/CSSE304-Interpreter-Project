@@ -645,13 +645,11 @@
 ; Called at the start
 (define top-level-eval
   (lambda (form)
-    ; later we may add things that are not expressions.
-    
-    ; TODO: ADD DEFINE CONTRACT TO ENSURE THAT THE INPUTS
-    ;       ARE VALID
-    (eval-exp global-env form)
+    (cases expression form
+      [define-exp (name exp)
+        (set! global-env (extend-env (list name) (list (eval-exp global-env exp)) global-env))]
       
-    ))
+      [else (eval-exp global-env form)])))
 
 ; eval-exp is the main component of the interpreter
 
