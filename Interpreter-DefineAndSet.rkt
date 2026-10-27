@@ -482,9 +482,10 @@
                          (hash-ref global-hashtable sym)]
             
                         ; applying an arbitrary c..r proc
-                        (if (c...r-proc? sym)
-                            (prim-proc sym)
-                            (error 'env "variable ~s not found." sym))]
+                        [(c...r-proc? sym)
+                           (make-ref (vector (prim-proc sym)) 0)]
+                        [else
+                            (error 'env "variable ~s not found." sym)])]
       [extended-env-record (syms vals env)
                            (let ((pos (list-find-position sym syms)))
                              (if (number? pos)
@@ -737,6 +738,7 @@
       [nf-lambda-exp (ids bodies)
                      ; returns a closure 'lambda-proc'
                      (nf-lambda-proc ids bodies env)]
+
       [begin-exp (bodies)
                  (last (map (lambda (b) (eval-exp env b)) bodies))]
 
