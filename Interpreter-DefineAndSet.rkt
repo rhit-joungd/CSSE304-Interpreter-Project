@@ -475,12 +475,17 @@
 (define apply-env-ref
   (lambda (env sym) 
     (cases environment env 
-      [empty-env-record ()
-                        ; hashtable lookup 
+      [empty-env-record (global-hashtable)
+                  (cond ; hashtable lookup
+                        ;; Check if it's in the hash table
+                        [(hash-has-key? global-hashtable sym)
+                         (hash-ref global-hashtable sym)]
+            
                         ; applying an arbitrary c..r proc
-                        (if (c...r-proc? sym)
-                            (prim-proc sym)
-                            (error 'env "variable ~s not found." sym))]
+                        [(c...r-proc? sym)
+                           (make-ref (vector (prim-proc sym)) 0)]
+                        [else
+                            (error 'env "variable ~s not found." sym)])]
       [extended-env-record (syms vals env)
                            (let ((pos (list-find-position sym syms)))
                              (if (number? pos)
@@ -553,10 +558,8 @@
                         (map syntax-expand rands))]
           
       ; begin --> application expression
-      [begin-exp (bodies)
-                 (app-exp
-                  (lambda-exp '() (map syntax-expand bodies))
-                  '())]
+     [begin-exp (bodies)
+           (begin-exp (map syntax-expand bodies))]
           
       ; cond --> ifs
       [cond-exp (clauses)
@@ -599,13 +602,19 @@
 
       ; or --> ifs
       [or-exp (exps)
-              (cond [(null? exps) (lit-exp #f)] ; no exps
-                    ; on last expression left
-                    [(null? (cdr exp)) (syntax-expand (car exps))]
-                    ; else crease an if statement
-                    [else (if-exp (syntax-expand (car exps))
-                                  (syntax-expand (car exps))
-                                  (syntax-expand (or-exp (cdr exps))))])]
+        (cond
+          [(null? exps) (lit-exp #f)]
+          [(null? (cdr exps)) (syntax-expand (car exps))]
+          [else
+           ;; Expand into a let binding to evaluate (car exps) once:
+           ;; (let ([temp (car exps)]) (if temp temp (or (cdr exps))))
+           (syntax-expand
+            (let-exp 'let
+                     '(temp-or)
+                     (list (car exps))
+                     (list (if-exp (var-exp 'temp-or)
+                                   (var-exp 'temp-or)
+                                   (or-exp (cdr exps))))))])]
 
       [return-first-exp (exps)
                         (cond
@@ -653,7 +662,7 @@
 
 
 ; mutable global env ; not extend which doesn't change the original -- hashtable drracket, applyenv update global variable inital as hash table
-;    inserts elements into hash table ~ global env; singular apply-env, when fails look up in the hash table 
+; inserts elements into hash table ~ global env; singular apply-env, when fails look up in the hash table 
 
 ; top-level-eval evaluates a form in the global environment
 ; Called at the start
@@ -661,10 +670,20 @@
   (lambda (form)
     (cases expression form
       [define-exp (name exp)
-        (set! global-env (extend-env (list name) (list (eval-exp global-env exp)) global-env))]
+        (let ([val (eval-exp global-env exp)])
+          (cases environment global-env
+            [empty-env-record (table)
+              (hash-set! table name (make-ref (vector val) 0))
+              name]
+            [else
+             (error 'top-level-eval "Global environment is not an empty-env-record")]))]
+
       [begin-exp (bodies)
-                 (last (map (lambda (b)
-                              (top-level-eval (syntax-expand b))) bodies))]
+        (let ([expanded (syntax-expand form)])
+          (cases expression expanded
+            [begin-exp (expanded-bodies)
+              (last (map (lambda (b) (top-level-eval b)) expanded-bodies))]
+            [else (top-level-eval expanded)]))]
       [else (eval-exp global-env (syntax-expand form))])))
 
 ; eval-exp is the main component of the interpreter
@@ -790,23 +809,26 @@
   '(+ - * / add1 sub1
       not car = < > <= >= <= quotient
       zero? null? eq? eqv? equal? list? pair? vector? number? symbol?
-      procedure?
+      procedure? assq
       map apply member append list-tail
       cons list length vector vector-set! vector-ref
       list->vector vector->list))
 
-(define init-env        
-  (for-each
-   (lambda (name proc)
-     (hash-set! (empty-env) name (make-ref (vector proc) 0)))
-   *prim-proc-names*
-   (map prim-proc *prim-proc-names*)))
+(define init-env
+  (lambda ()
+    (let ([table (make-hash)])
+      (for-each
+       (lambda (name proc)
+         (hash-set! table name (make-ref (vector proc) 0)))
+       *prim-proc-names*
+       (map prim-proc *prim-proc-names*))
+      (empty-env-record table))))
 
-(define global-env init-env)
+(define global-env (init-env))
 
 (define reset-global-env
   (lambda ()
-    (set! global-env init-env)))
+    (set! global-env (init-env))))
 
 ; Usually an interpreter must define each 
 ; built-in procedure individually.  We are "cheating" a little bit.
@@ -840,6 +862,7 @@
       [(<) (apply < args)]
       [(>) (apply > args)]
       [(<=) (apply <= args)]
+      [(assq) (assq (1st args) (2nd args))]
       
       ; listing...
       [(list) args]
@@ -878,14 +901,14 @@
   (lambda ()
     (display "--> ")
     ;; notice that we don't save changes to the environment...
-    (let ([answer (top-level-eval (parse-exp (read)))])
+    (let ([answer (top-level-eval (syntax-expand (parse-exp (read))))])
       ;; TODO: are there answers that should display differently?
       ;; go through answer and replace lambda-exp with <interpreter-procedure>
       (pretty-print (replace-lambdas answer)) (newline)
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
-  (lambda (x) (replace-lambdas (top-level-eval (parse-exp x)))))
+  (lambda (x) (replace-lambdas (top-level-eval (syntax-expand (parse-exp x))))))
 
 
 ;; TESTING
@@ -906,7 +929,7 @@
                  (letrec ((reverse (lambda (lyst revlist) (if (null? lyst) revlist (reverse (cdr lyst) (cons (car lyst) revlist))))))
                    (lambda (los) (let loop ((los los) (sofar '())) (cond ((null? los) los) ((null? (cdr los)) (cons (car los) (reverse sofar '()))) (else (loop (cdr los) (cons (car los) sofar))))))
                    )))
-; (eval-one-exp '(rotate-linear '(1 2 3 4 5 6 7 8)))
+(eval-one-exp '(rotate-linear '(1 2 3 4 5 6 7 8)))
 
 ;; LET
 ;(syntax-expand (parse-exp '(let () 3 4 5)))
