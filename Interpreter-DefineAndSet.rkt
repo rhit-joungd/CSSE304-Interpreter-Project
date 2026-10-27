@@ -475,12 +475,15 @@
 (define apply-env-ref
   (lambda (env sym) 
     (cases environment env 
-      [empty-env-record ()
+      [empty-env-record (global-hashtable)
                         ; hashtable lookup 
                         ; applying an arbitrary c..r proc
-                        (if (c...r-proc? sym)
-                            (prim-proc sym)
-                            (error 'env "variable ~s not found." sym))]
+                        (cond
+                          [(hash-has-key? global-hashtable sym)
+                           (hash-ref global-hashtable sym)]
+                          [(c...r-proc? sym)
+                            (prim-proc sym)]
+                          [else (error 'env "variable ~s not found." sym)])]
       [extended-env-record (syms vals env)
                            (let ((pos (list-find-position sym syms)))
                              (if (number? pos)
